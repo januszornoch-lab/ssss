@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROLNICTWO PRZYSZŁOŚCI - Twoje żniwa w naszych rękach</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Background Images */
+        .background-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .season-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center center;
+            opacity: 0;
+            transition: opacity 3s ease-in-out;
+        }
+
+        .season-image.active {
+            opacity: 1;
+        }
+
+        /* Crop Swaying Animation - Left to Right */
+        .crop-sway-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+            z-index: 5;
+        }
+
+        .crop-sway-layer.active {
+            opacity: 1;
+        }
+
+        /* Spring - Gentle Growing Sway */
+        .crop-sway-layer.spring {
+            animation: gentleSway 4.5s ease-in-out infinite;
+            transform-origin: bottom center;
+        }
+
+        @keyframes gentleSway {
+            0%, 100% { 
+                transform: translateX(0) skewX(0deg);
+            }
+            25% { 
+                transform: translateX(-8px) skewX(-0.5deg);
+            }
+            75% { 
+                transform: translateX(8px) skewX(0.5deg);
+            }
+        }
+
+        /* Summer - Strong Wind Sway */
+        .crop-sway-layer.summer {
+            animation: strongSway 3s ease-in-out infinite;
+            transform-origin: bottom center;
+        }
+
+        @keyframes strongSway {
+            0%, 100% { 
+                transform: translateX(0) skewX(0deg) scale(1);
+            }
+            25% { 
+                transform: translateX(-15px) skewX(-1.5deg) scale(1.01);
+            }
+            50% { 
+                transform: translateX(0) skewX(0deg) scale(1);
+            }
+            75% { 
+                transform: translateX(15px) skewX(1.5deg) scale(1.01);
+            }
+        }
+
+        /* Particles Canvas */
+        .particles-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #particlesCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sun Rays */
+        .sunrays-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+            z-index: 8;
+            background: radial-gradient(ellipse at 70% 20%, 
+                rgba(255, 235, 59, 0.4) 0%, 
+                rgba(255, 193, 7, 0.2) 20%, 
+                transparent 45%);
+        }
+
+        .sunrays-overlay.active {
+            opacity: 1;
+            animation: sunGlow 6s ease-in-out infinite;
+        }
+
+        @keyframes sunGlow {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.9; }
+        }
+
+        /* Light Beams Effect */
+        .light-beams {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s;
+            z-index: 7;
+        }
+
+        .light-beams.active {
+            opacity: 1;
+        }
+
+        .beam {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(to bottom, 
+                rgba(255, 235, 59, 0.6) 0%, 
+                rgba(255, 235, 59, 0.3) 50%, 
+                transparent 100%);
+            animation: beamShift 8s ease-in-out infinite;
+        }
+
+        .beam:nth-child(1) { left: 65%; animation-delay: 0s; }
+        .beam:nth-child(2) { left: 68%; animation-delay: 1s; }
+        .beam:nth-child(3) { left: 71%; animation-delay: 2s; }
+        .beam:nth-child(4) { left: 74%; animation-delay: 1.5s; }
+
+        @keyframes beamShift {
+            0%, 100% { 
+                opacity: 0.3; 
+                transform: translateX(0) scaleX(1);
+            }
+            50% { 
+                opacity: 0.7; 
+                transform: translateX(10px) scaleX(1.5);
+            }
+        }
+
+        /* Gradient Overlay */
+        .gradient-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, 
+                rgba(0, 0, 0, 0.5) 0%, 
+                transparent 25%,
+                transparent 75%,
+                rgba(0, 0, 0, 0.7) 100%);
+            z-index: 15;
+        }
+
+        /* Content */
+        .content-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 80px;
+        }
+
+        .hero-text {
+            max-width: 750px;
+            animation: fadeInUp 2.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero-subtitle {
+            font-size: 14px;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 28px;
+            font-weight: 800;
+            text-shadow: 3px 3px 20px rgba(0, 0, 0, 1);
+        }
+
+        .hero-title {
+            font-size: 82px;
+            font-weight: 900;
+            color: #ffffff;
+            line-height: 1.05;
+            text-shadow: 5px 5px 25px rgba(0, 0, 0, 1);
+            letter-spacing: -2px;
+        }
+
+        /* Season Navigation */
+        .season-nav {
+            position: fixed;
+            right: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .season-dot {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            border: 2.5px solid rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .season-dot:hover {
+            transform: scale(1.5);
+            background: rgba(255, 255, 255, 0.7);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+        }
+
+        .season-dot.active {
+            background: #ffffff;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 1);
+            transform: scale(1.6);
+        }
+
+        .season-dot::before {
+            content: attr(data-season);
+            position: absolute;
+            right: 45px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .season-dot:hover::before {
+            opacity: 1;
+            transform: translateY(-50%) translateX(-8px);
+        }
+
+        /* Season Indicator */
+        .season-indicator {
+            position: fixed;
+            bottom: 55px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 18px 45px;
+            border-radius: 40px;
+            color: white;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 35px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 1s;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 70px;
+            height: 70px;
+            border: 6px solid rgba(255, 255, 255, 0.08);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1.2s linear infinite;
+            margin-bottom: 25px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content-layer {
+                padding: 0 35px;
+            }
+
+            .hero-title {
+                font-size: 56px;
+            }
+
+            .hero-subtitle {
+                font-size: 10px;
+                letter-spacing: 4px;
+            }
+
+            .season-nav {
+                right: 30px;
+                gap: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loader"></div>
+        <div class="loading-text">Ładowanie...</div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <!-- Background Images -->
+        <div class="background-layer">
+            <img src="spring_v3.jpg" alt="Wiosna" class="season-image active" data-season="0">
+            <img src="summer_v3.jpg" alt="Lato" class="season-image" data-season="1">
+            <img src="autumn_v3.jpg" alt="Jesień" class="season-image" data-season="2">
+            <img src="winter_v3.jpg" alt="Zima" class="season-image" data-season="3">
+        </div>
+
+        <!-- Crop Swaying Layer -->
+        <div class="crop-sway-layer spring active" data-season="0">
+            <img src="spring_v3.jpg" alt="Wiosna plony" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.6; mix-blend-mode: overlay;">
+        </div>
+        <div class="crop-sway-layer summer" data-season="1">
+            <img src="summer_v3.jpg" alt="Lato plony" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.5; mix-blend-mode: overlay;">
+        </div>
+
+        <!-- Light Beams (Summer) -->
+        <div class="light-beams" id="lightBeams">
+            <div class="beam"></div>
+            <div class="beam"></div>
+            <div class="beam"></div>
+            <div class="beam"></div>
+        </div>
+
+        <!-- Sun Rays -->
+        <div class="sunrays-overlay" id="sunraysOverlay"></div>
+
+        <!-- Particles -->
+        <div class="particles-layer">
+            <canvas id="particlesCanvas"></canvas>
+        </div>
+
+        <!-- Gradient Overlay -->
+        <div class="gradient-overlay"></div>
+
+        <!-- Content -->
+        <div class="content-layer">
+            <div class="hero-text">
+                <div class="hero-subtitle">ROLNICTWO PRZYSZŁOŚCI</div>
+                <h1 class="hero-title">Twoje żniwa<br>w naszych rękach.</h1>
+            </div>
+        </div>
+
+        <!-- Season Navigation -->
+        <div class="season-nav">
+            <div class="season-dot active" data-season="Wiosna 🌱" data-index="0"></div>
+            <div class="season-dot" data-season="Lato ☀️" data-index="1"></div>
+            <div class="season-dot" data-season="Jesień 🍂" data-index="2"></div>
+            <div class="season-dot" data-season="Zima ❄️" data-index="3"></div>
+        </div>
+
+        <!-- Season Indicator -->
+        <div class="season-indicator" id="seasonIndicator">Wiosna</div>
+    </section>
+
+    <script>
+        const seasonNames = ['Wiosna', 'Lato', 'Jesień', 'Zima'];
+        let currentSeason = 0;
+        let autoRotateInterval;
+        let particles = [];
+        let canvas, ctx;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCanvas();
+            setupEventListeners();
+            preloadImages();
+            startAutoRotate();
+            updateSeasonEffects();
+        });
+
+        // Preload images
+        function preloadImages() {
+            const images = document.querySelectorAll('.season-image');
+            let loadedCount = 0;
+
+            images.forEach(img => {
+                if (img.complete) {
+                    loadedCount++;
+                    checkAllLoaded();
+                } else {
+                    img.addEventListener('load', () => {
+                        loadedCount++;
+                        checkAllLoaded();
+                    });
+                    img.addEventListener('error', () => {
+                        loadedCount++;
+                        checkAllLoaded();
+                    });
+                }
+            });
+
+            function checkAllLoaded() {
+                if (loadedCount === images.length) {
+                    setTimeout(() => {
+                        document.getElementById('loadingScreen').classList.add('hidden');
+                    }, 800);
+                }
+            }
+        }
+
+        // Canvas
+        function initCanvas() {
+            canvas = document.getElementById('particlesCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            animate();
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            const dots = document.querySelectorAll('.season-dot');
+            dots.forEach(dot => {
+                dot.addEventListener('click', () => {
+                    changeSeason(parseInt(dot.dataset.index));
+                    resetAutoRotate();
+                });
+            });
+        }
+
+        // Change season
+        function changeSeason(index) {
+            currentSeason = index;
+
+            // Update images
+            document.querySelectorAll('.season-image').forEach((img, i) => {
+                img.classList.toggle('active', i === index);
+            });
+
+            // Update dots
+            document.querySelectorAll('.season-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+
+            // Update crop sway layers
+            document.querySelectorAll('.crop-sway-layer').forEach((layer, i) => {
+                layer.classList.toggle('active', layer.dataset.season == index);
+            });
+
+            // Update indicator
+            document.getElementById('seasonIndicator').textContent = seasonNames[index];
+
+            // Update effects
+            updateSeasonEffects();
+        }
+
+        // Update effects
+        function updateSeasonEffects() {
+            particles = [];
+
+            const sunrays = document.getElementById('sunraysOverlay');
+            const lightBeams = document.getElementById('lightBeams');
+
+            sunrays.classList.remove('active');
+            lightBeams.classList.remove('active');
+
+            switch(currentSeason) {
+                case 0: // Spring
+                    createFlowerParticles(25);
+                    break;
+                case 1: // Summer
+                    sunrays.classList.add('active');
+                    lightBeams.classList.add('active');
+                    createPollenParticles(45);
+                    break;
+                case 2: // Autumn
+                    createLeafParticles(50);
+                    break;
+                case 3: // Winter
+                    createSnowParticles(150);
+                    break;
+            }
+        }
+
+        // Particles
+        function createFlowerParticles(count) {
+            const colors = ['#FFB6C1', '#FFC0CB', '#FF69B4', '#FFD700', '#FFFFFF'];
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 6 + 2,
+                    speedX: (Math.random() - 0.5) * 1,
+                    speedY: (Math.random() - 0.5) * 1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: Math.random() * 0.6 + 0.3,
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function createPollenParticles(count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 3 + 1,
+                    speedX: (Math.random() - 0.5) * 2,
+                    speedY: (Math.random() - 0.5) * 1.5,
+                    color: '#FFD700',
+                    alpha: Math.random() * 0.5 + 0.3,
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function createLeafParticles(count) {
+            const colors = ['#D2691E', '#FF8C00', '#FF6347', '#8B4513', '#CD853F'];
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: -150 - Math.random() * 300,
+                    size: Math.random() * 12 + 6,
+                    speedX: (Math.random() - 0.5) * 3,
+                    speedY: Math.random() * 3 + 2,
+                    rotation: Math.random() * 360,
+                    rotationSpeed: (Math.random() - 0.5) * 8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: Math.random() * 0.8 + 0.3
+                });
+            }
+        }
+
+        function createSnowParticles(count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 6 + 2,
+                    speedX: (Math.random() - 0.5) * 1,
+                    speedY: Math.random() * 2.5 + 1,
+                    color: '#FFFFFF',
+                    alpha: Math.random() * 0.9 + 0.3,
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // Animate
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach((particle) => {
+                particle.x += particle.speedX;
+                particle.y += particle.speedY;
+
+                if (particle.pulse !== undefined) {
+                    particle.pulse += 0.06;
+                }
+
+                if (particle.y > canvas.height + 150) {
+                    particle.y = -150;
+                    particle.x = Math.random() * canvas.width;
+                }
+                if (particle.x > canvas.width + 150) particle.x = -150;
+                if (particle.x < -150) particle.x = canvas.width + 150;
+
+                if (particle.rotation !== undefined) {
+                    particle.rotation += particle.rotationSpeed;
+                }
+
+                ctx.save();
+                
+                let currentAlpha = particle.alpha;
+                if (particle.pulse !== undefined) {
+                    currentAlpha = particle.alpha * (0.6 + Math.sin(particle.pulse) * 0.4);
+                }
+                
+                ctx.globalAlpha = currentAlpha;
+                ctx.fillStyle = particle.color;
+
+                if (particle.rotation !== undefined) {
+                    ctx.translate(particle.x, particle.y);
+                    ctx.rotate(particle.rotation * Math.PI / 180);
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, particle.size, particle.size * 0.6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Auto-rotate
+        function startAutoRotate() {
+            autoRotateInterval = setInterval(() => {
+                changeSeason((currentSeason + 1) % 4);
+            }, 12000);
+        }
+
+        function resetAutoRotate() {
+            clearInterval(autoRotateInterval);
+            startAutoRotate();
+        }
+    </script>
+</body>
+</html>
