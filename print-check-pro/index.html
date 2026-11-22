@@ -202,11 +202,15 @@ table.hist { width: 100%; border-collapse: collapse; font-size: 12px }
           <label class="f">Wysokość netto [mm]<input id="r_h" type="number" step="0.5" min="10"></label>
           <label class="f">Spad [mm]<input id="r_bleed" type="number" step="0.5" min="0"></label>
           <label class="f">Margines bezp. [mm]<input id="r_safe" type="number" step="0.5" min="0"></label>
-          <label class="f">Min. dpi (błąd)<input id="r_dpiMin" type="number" step="10" min="30"></label>
-          <label class="f">Docelowe dpi<input id="r_dpiTarget" type="number" step="10" min="30"></label>
+          <label class="f">Błąd poniżej [dpi]<input id="r_dpiMin" type="number" step="5" min="30"></label>
+          <label class="f">Ostrzeżenie poniżej [dpi]<input id="r_dpiTarget" type="number" step="5" min="30"></label>
+          <label class="f">Za ciężkie powyżej [dpi]<input id="r_dpiMax" type="number" step="10" min="100"></label>
           <label class="f">Limit farby TAC [%]<input id="r_tac" type="number" step="5" min="100" max="400"></label>
-          <label class="f">Min. linia [pt]<input id="r_minLine" type="number" step="0.05" min="0"></label>
-          <label class="f">Min. tekst [pt]<input id="r_minText" type="number" step="0.5" min="0"></label>
+          <label class="f">Linia: błąd &lt; [pt]<input id="r_minLine" type="number" step="0.025" min="0"></label>
+          <label class="f">Linia: ostrz. &lt; [pt]<input id="r_minLineWarn" type="number" step="0.025" min="0"></label>
+          <label class="f">Tekst: błąd &lt; [pt]<input id="r_minText" type="number" step="0.5" min="0"></label>
+          <label class="f">Tekst: ostrz. &lt; [pt]<input id="r_minTextWarn" type="number" step="0.5" min="0"></label>
+          <label class="f">Tekst wielobarwny min. [pt]<input id="r_minTextMulti" type="number" step="0.5" min="0"></label>
         </div>
         <label class="chk"><input id="r_cmykOnly" type="checkbox"> Tylko CMYK (RGB = błąd)</label>
         <label class="chk"><input id="r_allowSpot" type="checkbox"> Dozwolone kolory dodatkowe (Pantone)</label>
@@ -294,18 +298,31 @@ async function saveFile(filename, data) {
 }
 
 /* ---------- profiles (versioned rule sets) ---------- */
-const BASE = { dpiMin: 200, dpiTarget: 300, tac: 300, minLine: 0.25, minText: 6, cmykOnly: true, allowSpot: false, fontsEmbedded: true };
+// Thresholds follow Ghent Workgroup GWG 2015 sheetfed CMYK (via prepressure.com, automatalabs.ca) and ICC registry TAC limits (FOGRA51/52: 300%).
+const BASE = { dpiMin: 150, dpiTarget: 225, dpiMax: 450, tac: 300, minLine: 0.125, minLineWarn: 0.25, minText: 5, minTextWarn: 6, minTextMulti: 9, cmykOnly: true, allowSpot: false, fontsEmbedded: true };
+const V2 = 'progi wg GWG 2015 (dpi 150/225, linia 0,125/0,25 pt, tekst 5/6 pt, tekst wielobarwny 9 pt)';
 const DEFAULT_PROFILES = [
   { id: 'a5', name: 'Ulotka A5 · offset, papier powlekany', rules: { ...BASE, w: 148, h: 210, bleed: 3, safe: 4 } },
-  { id: 'a5u', name: 'Ulotka A5 · papier niepowlekany', rules: { ...BASE, w: 148, h: 210, bleed: 3, safe: 4, tac: 260 } },
-  { id: 'a4', name: 'Ulotka / plakat A4 · offset', rules: { ...BASE, w: 210, h: 297, bleed: 3, safe: 5 } },
+  { id: 'a5u', name: 'Ulotka A5 · papier niepowlekany', rules: { ...BASE, w: 148, h: 210, bleed: 3, safe: 4 }, note: V2 + '; TAC 300% wg FOGRA52 zamiast 260%' },
+  { id: 'a4', name: 'Ulotka / plakat A4 · offset', rules: { ...BASE, w: 210, h: 297, bleed: 3, safe: 4 } },
   { id: 'wiz', name: 'Wizytówka 90 × 50', rules: { ...BASE, w: 90, h: 50, bleed: 2, safe: 3 } },
-  { id: 'b2', name: 'Plakat B2 · druk cyfrowy', rules: { ...BASE, w: 500, h: 700, bleed: 3, safe: 10, dpiMin: 120, dpiTarget: 200, minText: 9 } },
-  { id: 'rollup', name: 'Roll-up 85 × 200 cm', rules: { ...BASE, w: 850, h: 2000, bleed: 5, safe: 30, dpiMin: 72, dpiTarget: 100, tac: 280, minLine: 0.5, minText: 20 } }
-].map(p => ({ ...p, version: 1, updated: null, history: [] }));
-const RULE_KEYS = ['w', 'h', 'bleed', 'safe', 'dpiMin', 'dpiTarget', 'tac', 'minLine', 'minText'];
+  { id: 'b2', name: 'Plakat B2 · druk cyfrowy', rules: { ...BASE, w: 500, h: 700, bleed: 3, safe: 5, dpiMin: 120, dpiTarget: 175, minLine: 0.25, minLineWarn: 0.25, minText: 6, minTextWarn: 8 } },
+  { id: 'rollup', name: 'Roll-up 85 × 200 cm', rules: { ...BASE, w: 850, h: 2050, bleed: 0, safe: 20, dpiMin: 72, dpiTarget: 120, dpiMax: 200, tac: 280, minLine: 0.5, minLineWarn: 0.5, minText: 14, minTextWarn: 20 }, note: 'plik 850 × 2050 mm (dół chowa się w kasecie), bez spadu, dpi 72/120 wg Printsmarket' }
+].map(p => ({ ...p, version: 2, updated: '22.11.2026', note: p.note || V2, history: [{ version: 1, note: 'wartości początkowe' }] }));
+const RULE_KEYS = ['w', 'h', 'bleed', 'safe', 'dpiMin', 'dpiTarget', 'dpiMax', 'tac', 'minLine', 'minLineWarn', 'minText', 'minTextWarn', 'minTextMulti'];
 const BOOL_KEYS = ['cmykOnly', 'allowSpot', 'fontsEmbedded'];
-let profiles = store.get('profiles', null) || structuredClone(DEFAULT_PROFILES);
+const SCHEMA = 2;
+let profiles = store.get('profiles', null);
+if (!profiles || store.get('schema', 1) < SCHEMA) {
+  // upgrade: untouched profiles get the new defaults, profiles edited by the user keep their values and gain new rule fields
+  const fresh = structuredClone(DEFAULT_PROFILES);
+  (profiles || []).filter(o => o.version > 1).forEach(o => {
+    const i = fresh.findIndex(f => f.id === o.id);
+    o.rules = { ...(i >= 0 ? fresh[i].rules : BASE), ...o.rules };
+    if (i >= 0) fresh[i] = o; else fresh.push(o);
+  });
+  profiles = fresh; store.set('profiles', profiles); store.set('schema', SCHEMA);
+}
 let profileId = store.get('profileId', 'a5');
 const prof = () => profiles.find(p => p.id === profileId) || profiles[0];
 
@@ -319,7 +336,7 @@ function fillProfileForm() {
   $('#profVer').textContent = 'v' + prof().version;
   $('#btnSaveProf').disabled = true;
   const p = prof();
-  $('#profHint').textContent = p.updated ? `Wersja ${p.version} z ${p.updated}. Każda zmiana reguł zapisuje się jako kolejna wersja.` : 'Każda zmiana reguł zapisuje się jako kolejna wersja profilu. Raport podaje, którą wersją sprawdzono plik.';
+  $('#profHint').textContent = p.updated ? `Wersja ${p.version} z ${p.updated}: ${p.note || 'zmiana reguł'}. Każda zmiana reguł zapisuje się jako kolejna wersja.` : 'Każda zmiana reguł zapisuje się jako kolejna wersja profilu. Raport podaje, którą wersją sprawdzono plik.';
 }
 function formRules() {
   const r = {};
@@ -334,10 +351,10 @@ $('#btnSaveProf').addEventListener('click', () => {
   const p = prof(), r = formRules();
   if (RULE_KEYS.some(k => !Number.isFinite(r[k]) || r[k] < 0)) { toast('Uzupełnij wszystkie pola liczbami'); return }
   p.history.push({ version: p.version, rules: p.rules, updated: p.updated });
-  p.rules = r; p.version += 1; p.updated = nowStr();
+  p.rules = r; p.version += 1; p.updated = nowStr(); p.note = 'zmiana ręczna';
   store.set('profiles', profiles); fillProfileForm(); toast(`Zapisano ${p.name} · v${p.version}`); rerunChecks();
 });
-$('#btnResetProf').addEventListener('click', () => { profiles = structuredClone(DEFAULT_PROFILES); store.set('profiles', profiles); fillProfileForm(); rerunChecks(); toast('Przywrócono profile domyślne') });
+$('#btnResetProf').addEventListener('click', () => { profiles = structuredClone(DEFAULT_PROFILES); store.set('profiles', profiles); store.set('schema', SCHEMA); fillProfileForm(); rerunChecks(); toast('Przywrócono profile domyślne') });
 
 /* ---------- PDF object helpers (pdf-lib) ---------- */
 let ctx = null; // current pdf-lib context
@@ -379,6 +396,8 @@ function csInfo(o, res) {
 const WS = new Set([0, 9, 10, 12, 13, 32]);
 const DL = new Set([40, 41, 60, 62, 91, 93, 123, 125, 47, 37]);
 const NUMRE = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+// spot colour names print shops use for cut / die / crease lines
+const DIE_RE = /cut|contour|kontur|stanz|wykroj|die|perf|big|crease|rill|falz|thru/i;
 const mul = (m, n) => [m[0] * n[0] + m[1] * n[2], m[0] * n[1] + m[1] * n[3], m[2] * n[0] + m[3] * n[2], m[2] * n[1] + m[3] * n[3], m[4] * n[0] + m[5] * n[2] + n[4], m[4] * n[1] + m[5] * n[3] + n[5]];
 const scaleOf = m => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
 const tp = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
@@ -389,7 +408,7 @@ function interpret(bytes, res, ctm0, P, depth) {
   let ops = [];           // operand stack
   const nest = [];        // array / dict nesting
   const push = v => (nest.length ? nest[nest.length - 1].push(v) : ops.push(v));
-  let gs = { ctm: ctm0.slice(), lw: 1, fcs: { fam: 'gray' }, scs: { fam: 'gray' } };
+  let gs = { ctm: ctm0.slice(), lw: 1, fcs: { fam: 'gray' }, scs: { fam: 'gray' }, fv: [0], sv: [0], opF: false, opS: false };
   const gstack = [];
   let tm = [1, 0, 0, 1, 0, 0], tlm = tm, fsize = 0, font = null;
   const str = (a, b) => { let s = ''; for (let k = a; k < b; k++) s += String.fromCharCode(bytes[k]); return s };
@@ -400,6 +419,27 @@ function interpret(bytes, res, ctm0, P, depth) {
     else if (cs.fam === 'spot') cs.spots.forEach(s => P.spots.add(s));
     else if (cs.fam === 'lab') P.labVec++;
   };
+  // a filled/stroked object or text was painted with colour space cs, values v, overprint flag op
+  const isWhite = (cs, v) => cs.fam === 'cmyk' ? v.length >= 4 && v.every(x => x <= 0.001) : cs.fam === 'gray' ? v.length >= 1 && v[0] >= 0.999 : cs.fam === 'rgb' ? v.length >= 3 && v.every(x => x >= 0.999) : false;
+  const paint = (cs, v, op) => {
+    if (op && isWhite(cs, v)) P.whiteOP++;
+    if (cs.fam === 'spot') cs.spots.filter(n => DIE_RE.test(n)).forEach(n => { const d = P.die.get(n) || { name: n, uses: 0, knockout: 0 }; d.uses++; if (!op) d.knockout++; P.die.set(n, d) });
+  };
+  const textColour = eff => {
+    const cs = gs.fcs, v = gs.fv;
+    if (cs.fam === 'cmyk' && v.length >= 4) {
+      const cmy = v[0] + v[1] + v[2], inks = v.filter(x => x > 0.05).length;
+      if (v[3] >= 0.85 && cmy > 0.05) { P.text4c.n++; P.text4c.min = Math.min(P.text4c.min, eff); P.text4c.tac = Math.max(P.text4c.tac, (cmy + v[3]) * 100) }
+      else if (inks >= 2 && eff < P.multiMin) P.multiMin = eff;
+      if (v[3] >= 0.99 && cmy <= 0.05 && eff < 12 && !gs.opF) P.textKO++;
+    } else if (cs.fam === 'gray' && v.length && v[0] <= 0.01) {
+      if (eff < 12 && !gs.opF) P.textKO++;
+    } else if (cs.fam === 'rgb' && v.length >= 3) {
+      const mx = Math.max(...v.slice(0, 3)), mn = Math.min(...v.slice(0, 3));
+      if (mx <= 0.2) { P.textRgbBlack.n++; P.textRgbBlack.min = Math.min(P.textRgbBlack.min, eff) }
+      else if (mx - mn > 0.05 && eff < P.multiMin) P.multiMin = eff;
+    }
+  };
   const op = o => {
     const a = ops;
     switch (o) {
@@ -407,22 +447,26 @@ function interpret(bytes, res, ctm0, P, depth) {
       case 'Q': if (gstack.length) gs = gstack.pop(); break;
       case 'cm': if (a.length >= 6) gs.ctm = mul(a.slice(-6), gs.ctm); break;
       case 'w': gs.lw = a[a.length - 1]; break;
+      case 'f': case 'F': case 'f*': paint(gs.fcs, gs.fv, gs.opF); break;
       case 'S': case 's': case 'B': case 'b': case 'B*': case 'b*': {
         const eff = gs.lw * scaleOf(gs.ctm);
         P.strokes++;
-        if (eff < P.minLine) P.minLine = eff;
+        const dieStroke = gs.scs.fam === 'spot' && gs.scs.spots.some(n => DIE_RE.test(n));
+        if (!dieStroke && eff < P.minLine) P.minLine = eff;
+        paint(gs.scs, gs.sv, gs.opS);
+        if (o !== 'S' && o !== 's') paint(gs.fcs, gs.fv, gs.opF);
         break;
       }
-      case 'k': gs.fcs = { fam: 'cmyk' }; colorUse(gs.fcs, a.slice(-4)); break;
-      case 'K': gs.scs = { fam: 'cmyk' }; colorUse(gs.scs, a.slice(-4)); break;
-      case 'rg': gs.fcs = { fam: 'rgb' }; colorUse(gs.fcs, a.slice(-3)); break;
-      case 'RG': gs.scs = { fam: 'rgb' }; colorUse(gs.scs, a.slice(-3)); break;
-      case 'g': gs.fcs = { fam: 'gray' }; break;
-      case 'G': gs.scs = { fam: 'gray' }; break;
+      case 'k': gs.fcs = { fam: 'cmyk' }; gs.fv = a.slice(-4); colorUse(gs.fcs, gs.fv); break;
+      case 'K': gs.scs = { fam: 'cmyk' }; gs.sv = a.slice(-4); colorUse(gs.scs, gs.sv); break;
+      case 'rg': gs.fcs = { fam: 'rgb' }; gs.fv = a.slice(-3); colorUse(gs.fcs, gs.fv); break;
+      case 'RG': gs.scs = { fam: 'rgb' }; gs.sv = a.slice(-3); colorUse(gs.scs, gs.sv); break;
+      case 'g': gs.fcs = { fam: 'gray' }; gs.fv = a.slice(-1); break;
+      case 'G': gs.scs = { fam: 'gray' }; gs.sv = a.slice(-1); break;
       case 'cs': gs.fcs = csInfo(PDFName.of(a[a.length - 1] || 'DeviceGray'), res); if (gs.fcs.fam === 'spot') gs.fcs.spots.forEach(s => P.spots.add(s)); break;
       case 'CS': gs.scs = csInfo(PDFName.of(a[a.length - 1] || 'DeviceGray'), res); if (gs.scs.fam === 'spot') gs.scs.spots.forEach(s => P.spots.add(s)); break;
-      case 'sc': case 'scn': colorUse(gs.fcs, a.filter(v => typeof v === 'number')); break;
-      case 'SC': case 'SCN': colorUse(gs.scs, a.filter(v => typeof v === 'number')); break;
+      case 'sc': case 'scn': gs.fv = a.filter(v => typeof v === 'number'); colorUse(gs.fcs, gs.fv); break;
+      case 'SC': case 'SCN': gs.sv = a.filter(v => typeof v === 'number'); colorUse(gs.scs, gs.sv); break;
       case 'gs': {
         const g = dget(dget(res, 'ExtGState'), a[a.length - 1]);
         if (g) {
@@ -430,8 +474,11 @@ function interpret(bytes, res, ctm0, P, depth) {
           if ((Number.isFinite(ca) && ca < 1) || (Number.isFinite(CA) && CA < 1)) P.transparency = true;
           const sm = dget(g, 'SMask'); if (sm && nm(sm) !== 'None') P.transparency = true;
           const bm = nm(dget(g, 'BM')); if (bm && bm !== 'Normal' && bm !== 'Compatible') P.transparency = true;
-          const op1 = dget(g, 'op'), op2 = dget(g, 'OP');
-          if ((op1 && op1.asBoolean && op1.asBoolean()) || (op2 && op2.asBoolean && op2.asBoolean())) P.overprint = true;
+          const bool = o => (o && o.asBoolean ? o.asBoolean() : undefined);
+          const OPs = bool(dget(g, 'OP')), opf = bool(dget(g, 'op'));
+          if (OPs !== undefined) { gs.opS = OPs; gs.opF = OPs }
+          if (opf !== undefined) gs.opF = opf;
+          if (OPs || opf) P.overprint = true;
         }
         break;
       }
@@ -444,6 +491,8 @@ function interpret(bytes, res, ctm0, P, depth) {
           const eff = Math.abs(fsize) * scaleOf(mul(tm, gs.ctm));
           if (eff > 0.01 && eff < P.minText) P.minText = eff;
           if (gs.fcs.fam === 'rgb') P.rgbText = true;
+          textColour(eff);
+          paint(gs.fcs, gs.fv, gs.opF);
         }
         break;
       }
@@ -463,7 +512,8 @@ function interpret(bytes, res, ctm0, P, depth) {
           const pts = [tp(m, 0, 0), tp(m, 1, 0), tp(m, 0, 1), tp(m, 1, 1)];
           const bbox = { x0: Math.min(...pts.map(p => p[0])), y0: Math.min(...pts.map(p => p[1])), x1: Math.max(...pts.map(p => p[0])), y1: Math.max(...pts.map(p => p[1])) };
           const dpi = Math.min(W / (wPt / 72), H / (hPt / 72));
-          if (wPt > 0.5 && hPt > 0.5) P.images.push({ name, W, H, wMm: toMm(wPt), hMm: toMm(hPt), dpi, cs: cs.fam, bbox });
+          const bpc = num(dget(xo, 'BitsPerComponent'));
+          if (wPt > 0.5 && hPt > 0.5) P.images.push({ name, W, H, wMm: toMm(wPt), hMm: toMm(hPt), dpi, cs: cs.fam, bbox, bit1: isMask || bpc === 1 });
         } else if (st === 'Form') {
           const fm = arr(dget(xo, 'Matrix')).map(num);
           const ctm = mul(fm.length === 6 ? fm : [1, 0, 0, 1, 0, 0], gs.ctm);
@@ -577,7 +627,8 @@ async function analyze(bytes) {
       index: pi, media, vis, trim: trimRaw || artRaw || null, trimExplicit: !!trimRaw, bleedBox: bleedRaw,
       rotate: num(inherited(node, 'Rotate')) || 0,
       images: [], minLine: Infinity, minText: Infinity, strokes: 0, rgbVec: 0, cmykVec: 0, labVec: 0, vecTac: 0, rgbText: false,
-      spots: new Set(), transparency: false, overprint: false, shadings: 0, inlineImages: 0, fonts: fontsAll, textOutside: [], estTac: 0, estTacMax: 0
+      spots: new Set(), transparency: false, overprint: false, shadings: 0, inlineImages: 0, fonts: fontsAll, textOutside: [], estTac: 0, estTacMax: 0,
+      whiteOP: 0, die: new Map(), text4c: { n: 0, min: Infinity, tac: 0 }, textRgbBlack: { n: 0, min: Infinity }, multiMin: Infinity, textKO: 0, cropDiffers: !!crop && ['x0', 'y0', 'x1', 'y1'].some(k => Math.abs(crop[k] - media[k]) > 0.5)
     };
     const res = inherited(node, 'Resources');
     collectFonts(res, P);
@@ -603,72 +654,101 @@ async function analyze(bytes) {
     A.pages.push(P);
   }
   A.fonts = [...fontsAll.values()];
+  const txt = o => { o = L(o); return o && typeof o.decodeText === 'function' ? o.decodeText() : '' };
+  try {
+    A.outputIntents = arr(doc.catalog.get(PDFName.of('OutputIntents'))).map(oi => ({ s: nm(dget(oi, 'S')), id: txt(dget(oi, 'OutputConditionIdentifier')) || txt(dget(oi, 'Info')) }));
+    const info = L(doc.context.trailerInfo.Info);
+    A.pdfx = info instanceof PDFDict ? txt(info.get(PDFName.of('GTS_PDFXVersion'))) : '';
+  } catch { A.outputIntents = A.outputIntents || []; A.pdfx = '' }
   return A;
 }
 
 /* ---------- checks ---------- */
 const ST = { ok: 'OK', warn: 'Ostrzeżenie', err: 'Błąd', info: 'Info', fixed: 'Poprawione' };
-function pageGeometry(P, r) {
-  const bleedPt = r.bleed * MM;
+function pageGeometry(P, r, sf = 1) {
+  // sf = 10 for artwork delivered at 1:10 scale (large format); all returned sizes are real-world mm
+  const bleedPt = r.bleed * MM / sf;
   let trim = P.trim, assumed = false;
   if (!trim) {
-    const w = toMm(P.vis.x1 - P.vis.x0), h = toMm(P.vis.y1 - P.vis.y0);
-    const fits = (W, H) => (Math.abs(w - W) < 0.6 && Math.abs(h - H) < 0.6) || (Math.abs(w - H) < 0.6 && Math.abs(h - W) < 0.6);
+    const w = toMm(P.vis.x1 - P.vis.x0) * sf, h = toMm(P.vis.y1 - P.vis.y0) * sf, tol = 0.6 * sf;
+    const fits = (W, H) => (Math.abs(w - W) < tol && Math.abs(h - H) < tol) || (Math.abs(w - H) < tol && Math.abs(h - W) < tol);
     if (r.bleed > 0 && fits(r.w + 2 * r.bleed, r.h + 2 * r.bleed)) { trim = { x0: P.vis.x0 + bleedPt, y0: P.vis.y0 + bleedPt, x1: P.vis.x1 - bleedPt, y1: P.vis.y1 - bleedPt }; assumed = true }
     else trim = P.vis;
   }
   const outer = P.vis;
-  const sides = [trim.x0 - outer.x0, trim.y0 - outer.y0, outer.x1 - trim.x1, outer.y1 - trim.y1].map(v => Math.max(0, toMm(v)));
+  const sides = [trim.x0 - outer.x0, trim.y0 - outer.y0, outer.x1 - trim.x1, outer.y1 - trim.y1].map(v => Math.max(0, toMm(v) * sf));
   const bleedMin = Math.min(...sides);
-  const tw = toMm(trim.x1 - trim.x0), th = toMm(trim.y1 - trim.y0);
+  const tw = toMm(trim.x1 - trim.x0) * sf, th = toMm(trim.y1 - trim.y0) * sf;
   const rot = P.rotate % 180 !== 0;
   const W = rot ? th : tw, H = rot ? tw : th;
   return { trim, assumed, sides, bleedMin, W, H };
 }
+const sizeMatches = (g, r, tol = 0.5) => (Math.abs(g.W - r.w) <= tol && Math.abs(g.H - r.h) <= tol) || (Math.abs(g.W - r.h) <= tol && Math.abs(g.H - r.w) <= tol);
+function detectScale(A, r) {
+  const P = A.pages[0]; if (!P) return 1;
+  if (sizeMatches(pageGeometry(P, r, 1), r)) return 1;
+  return Math.max(r.w, r.h) >= 300 && sizeMatches(pageGeometry(P, r, 10), r, 2) ? 10 : 1;
+}
+// image resolution verdict; 1-bit art uses GWG limits 550 / 800 ppi
+function imgLevel(im, r, sf) {
+  const dpi = im.dpi / sf, lo = im.bit1 ? 550 : r.dpiMin, mid = im.bit1 ? 800 : r.dpiTarget;
+  return dpi < lo ? 'err' : dpi < mid ? 'warn' : (!im.bit1 && r.dpiMax && dpi > r.dpiMax) ? 'high' : 'ok';
+}
+const worst = (...st) => ['err', 'warn', 'info', 'ok'].find(x => st.includes(x)) || 'ok';
+
 function buildChecks(A, r) {
   const C = [];
   const add = (id, title, status, summary, details = [], fix = null) => C.push({ id, title, status, summary, details, fix });
   if (A.error) { add('read', 'Odczyt pliku', 'err', A.error); return C }
   if (A.encrypted) add('enc', 'Zabezpieczenie hasłem', 'err', 'PDF jest zaszyfrowany. Drukarnia potrzebuje pliku bez ograniczeń.', [], null);
+  const sf = A.sf = detectScale(A, r);
+  const sfNote = sf !== 1 ? ' (plik w skali 1:10, przeliczono ×10)' : '';
 
   // format
-  const geos = A.pages.map(P => pageGeometry(P, r));
+  const geos = A.pages.map(P => pageGeometry(P, r, sf));
   const sizeBad = [], sizeScalable = [];
   geos.forEach((g, i) => {
-    const okP = Math.abs(g.W - r.w) <= 0.5 && Math.abs(g.H - r.h) <= 0.5, okL = Math.abs(g.W - r.h) <= 0.5 && Math.abs(g.H - r.w) <= 0.5;
-    if (!okP && !okL) {
+    if (!sizeMatches(g, r, 0.5 * sf)) {
       sizeBad.push(i);
       const ar = g.W / g.H, tr = r.w / r.h;
       if (Math.abs(ar / tr - 1) < 0.015 || Math.abs(ar * tr - 1) < 0.015) sizeScalable.push(i);
     }
   });
+  const mixed = geos.some(g => Math.abs(g.W - geos[0].W) > 0.5 || Math.abs(g.H - geos[0].H) > 0.5);
   const g0 = geos[0];
-  add('size', 'Format netto', sizeBad.length ? 'err' : 'ok',
-    sizeBad.length ? `${nf(g0.W)} × ${nf(g0.H)} mm zamiast ${nf(r.w)} × ${nf(r.h)} mm` : `${nf(r.w)} × ${nf(r.h)} mm, zgodny z profilem`,
-    sizeBad.map(i => `Strona ${i + 1}: ${nf(geos[i].W)} × ${nf(geos[i].H)} mm${sizeScalable.includes(i) ? ' (proporcje zgodne, można przeskalować)' : ' (inne proporcje – wymaga decyzji klienta)'}`),
-    sizeBad.length && sizeScalable.length === sizeBad.length ? 'scale' : null);
+  add('size', 'Format netto', sizeBad.length ? 'err' : mixed ? 'warn' : 'ok',
+    (sizeBad.length ? `${nf(g0.W)} × ${nf(g0.H)} mm zamiast ${nf(r.w)} × ${nf(r.h)} mm` : mixed ? 'Strony mają różne formaty' : `${nf(r.w)} × ${nf(r.h)} mm, zgodny z profilem`) + sfNote,
+    [...sizeBad.map(i => `Strona ${i + 1}: ${nf(geos[i].W)} × ${nf(geos[i].H)} mm${sizeScalable.includes(i) ? ' (proporcje zgodne, można przeskalować)' : ' (inne proporcje – wymaga decyzji klienta)'}`),
+     ...(mixed ? geos.map((g, i) => `Strona ${i + 1}: ${nf(g.W)} × ${nf(g.H)} mm`).slice(0, 12) : [])],
+    sizeBad.length && sizeScalable.length === sizeBad.length && sf === 1 ? 'scale' : null);
 
   // bleed
-  const noBleed = geos.map((g, i) => ({ g, i })).filter(({ g }) => g.bleedMin + 0.05 < r.bleed);
+  const noBleed = geos.map((g, i) => ({ g, i })).filter(({ g }) => g.bleedMin + 0.05 * sf < r.bleed);
   add('bleed', 'Spady', r.bleed === 0 ? 'info' : noBleed.length ? 'err' : 'ok',
     r.bleed === 0 ? 'Profil nie wymaga spadu' : noBleed.length ? `Brak ${nf(r.bleed)} mm spadu (jest ${nf(noBleed[0].g.bleedMin)} mm)` : `${nf(Math.min(...geos.map(g => g.bleedMin)))} mm z każdej strony`,
     noBleed.map(({ g, i }) => `Strona ${i + 1}: lewy ${nf(g.sides[0])}, dół ${nf(g.sides[1])}, prawy ${nf(g.sides[2])}, góra ${nf(g.sides[3])} mm`),
     noBleed.length ? 'bleed' : null);
 
-  // trim box
+  // page boxes, rotation, crop box
   const noTrim = A.pages.filter(P => !P.trimExplicit);
   const assumedTrim = geos.some(g => g.assumed);
-  add('boxes', 'Linie cięcia (TrimBox)', noTrim.length ? (assumedTrim ? 'warn' : 'info') : 'ok',
+  const boxNotes = [
+    ...A.pages.filter(P => P.rotate % 360).map(P => `Strona ${P.index + 1}: obrócona o ${P.rotate}° (Rotate)`),
+    ...A.pages.filter(P => P.cropDiffers).map(P => `Strona ${P.index + 1}: CropBox różny od MediaBox – część strony jest ukryta`)
+  ];
+  add('boxes', 'Linie cięcia (TrimBox)', noTrim.length ? (assumedTrim ? 'warn' : 'info') : boxNotes.length ? 'info' : 'ok',
     noTrim.length ? (assumedTrim ? 'Brak TrimBox – format netto odczytany z rozmiaru strony minus spad' : 'Brak TrimBox – format netto = rozmiar strony') : 'Zdefiniowany na wszystkich stronach',
-    [], noTrim.length && assumedTrim && !noBleed.length && !sizeBad.length ? 'boxes' : null);
+    boxNotes.slice(0, 12), noTrim.length && assumedTrim && !noBleed.length && !sizeBad.length ? 'boxes' : null);
 
   // images
-  const imgs = A.pages.flatMap(P => P.images.map(im => ({ ...im, page: P.index })));
-  const low = imgs.filter(im => im.dpi < r.dpiMin), mid = imgs.filter(im => im.dpi >= r.dpiMin && im.dpi < r.dpiTarget);
-  const minDpi = imgs.length ? Math.min(...imgs.map(i => i.dpi)) : NaN;
+  const imgs = A.pages.flatMap(P => P.images.map(im => ({ ...im, page: P.index, lvl: imgLevel(im, r, sf), rdpi: im.dpi / sf })));
+  const low = imgs.filter(im => im.lvl === 'err'), mid = imgs.filter(im => im.lvl === 'warn'), high = imgs.filter(im => im.lvl === 'high');
+  const minDpi = imgs.length ? Math.min(...imgs.map(i => i.rdpi)) : NaN;
+  const lowTxt = n => plural(n, 'obraz', 'obrazy', 'obrazów');
   add('dpi', 'Rozdzielczość obrazów', !imgs.length ? 'info' : low.length ? 'err' : mid.length ? 'warn' : 'ok',
-    !imgs.length ? 'Brak obrazów bitmapowych' : low.length ? `${low.length} ${low.length === 1 ? 'obraz' : 'obrazy'} poniżej ${r.dpiMin} dpi (najniższa ${nf(minDpi, 0)} dpi)` : mid.length ? `${mid.length} poniżej docelowych ${r.dpiTarget} dpi (najniższa ${nf(minDpi, 0)} dpi)` : `Wszystkie ≥ ${r.dpiTarget} dpi (najniższa ${nf(minDpi, 0)} dpi)`,
-    imgs.slice(0, 30).map(im => `Str. ${im.page + 1}: ${im.W}×${im.H} px na ${nf(im.wMm, 0)}×${nf(im.hMm, 0)} mm → ${nf(im.dpi, 0)} dpi · ${im.cs.toUpperCase()}`), null);
+    (!imgs.length ? 'Brak obrazów bitmapowych' : low.length ? `${lowTxt(low.length)} poniżej ${r.dpiMin} dpi (najniższa ${nf(minDpi, 0)} dpi)` : mid.length ? `${lowTxt(mid.length)} poniżej ${r.dpiTarget} dpi (najniższa ${nf(minDpi, 0)} dpi)` : `Wszystkie ≥ ${r.dpiTarget} dpi (najniższa ${nf(minDpi, 0)} dpi)`)
+      + (high.length ? ` · ${lowTxt(high.length)} > ${r.dpiMax} dpi (niepotrzebnie ciężkie)` : '') + sfNote,
+    imgs.slice(0, 30).map(im => `Str. ${im.page + 1}: ${im.W}×${im.H} px na ${nf(im.wMm * sf, 0)}×${nf(im.hMm * sf, 0)} mm → ${nf(im.rdpi, 0)} dpi · ${im.bit1 ? '1-bit (próg 550/800)' : im.cs.toUpperCase()}`), null);
 
   // color space
   const rgbImgs = imgs.filter(i => i.cs === 'rgb' || i.cs === 'lab'), rgbVec = A.pages.reduce((s, P) => s + P.rgbVec + P.labVec, 0);
@@ -678,11 +758,21 @@ function buildChecks(A, r) {
     [...rgbImgs.slice(0, 10).map(i => `Str. ${i.page + 1}: obraz ${i.W}×${i.H} px w ${i.cs.toUpperCase()}`), ...(rgbVec ? [`Kolory wektorowe/tekst w RGB: ${rgbVec}`] : [])],
     hasRgb ? 'cmyk' : null);
 
-  // spot colours
-  const spots = [...new Set(A.pages.flatMap(P => [...P.spots]))];
+  // spot colours (die / cut lines are reported separately)
+  const spots = [...new Set(A.pages.flatMap(P => [...P.spots]))].filter(n => !DIE_RE.test(n));
   add('spot', 'Kolory dodatkowe', !spots.length ? 'ok' : r.allowSpot ? 'info' : 'warn',
     !spots.length ? 'Brak kolorów Pantone / dodatkowych' : `${spots.length}: ${spots.slice(0, 4).join(', ')}${spots.length > 4 ? '…' : ''}`,
     spots.length && !r.allowSpot ? ['Profil zakłada druk CMYK – kolory dodatkowe zostaną rozbite na CMYK.'] : [], spots.length && !r.allowSpot ? 'cmyk' : null);
+
+  // die / cut line
+  const dies = new Map();
+  A.pages.forEach(P => P.die.forEach((d, n) => { const e = dies.get(n) || { name: n, uses: 0, knockout: 0 }; e.uses += d.uses; e.knockout += d.knockout; dies.set(n, e) }));
+  if (dies.size) {
+    const ko = [...dies.values()].filter(d => d.knockout);
+    add('die', 'Wykrojnik / linia cięcia', ko.length ? 'warn' : 'ok',
+      ko.length ? `${[...dies.keys()].join(', ')} bez nadruku – wybije białą linię w grafice` : `${[...dies.keys()].join(', ')} z nadrukiem (overprint)`,
+      [...[...dies.values()].map(d => `${d.name}: ${d.uses} ${d.uses === 1 ? 'użycie' : 'użyć'}${d.knockout ? `, ${d.knockout} bez nadruku` : ''}`), 'Linia cięcia ma być wektorem w kolorze dodatkowym, z nadrukiem, na osobnej warstwie.']);
+  }
 
   // TAC
   const vecTac = Math.max(0, ...A.pages.map(P => P.vecTac)), estTac = Math.max(0, ...A.pages.map(P => P.estTac));
@@ -696,35 +786,56 @@ function buildChecks(A, r) {
   const notEmb = A.fonts.filter(f => !f.embedded);
   add('fonts', 'Czcionki', !A.fonts.length ? 'info' : notEmb.length ? (r.fontsEmbedded ? 'err' : 'warn') : 'ok',
     !A.fonts.length ? 'Brak tekstu jako czcionek' : notEmb.length ? `${notEmb.length} nieosadzon${notEmb.length === 1 ? 'a' : 'e'}: ${notEmb.slice(0, 3).map(f => f.name).join(', ')}` : `Wszystkie osadzone (${A.fonts.length})`,
-    A.fonts.slice(0, 20).map(f => `${f.name} · ${f.type} · ${f.embedded ? 'osadzona' : 'NIEOSADZONA'}`), notEmb.length ? 'flatten' : null);
+    [...A.fonts.slice(0, 20).map(f => `${f.name} · ${f.type} · ${f.embedded ? 'osadzona' : 'NIEOSADZONA'}`), ...(A.fonts.some(f => /^Courier/i.test(f.name)) ? ['Courier często oznacza brakującą czcionkę podmienioną przy eksporcie.'] : [])],
+    notEmb.length ? 'flatten' : null);
 
   // lines
-  const minLine = Math.min(...A.pages.map(P => P.minLine));
-  add('lines', 'Grubość linii', !Number.isFinite(minLine) ? 'info' : minLine < r.minLine ? 'warn' : 'ok',
-    !Number.isFinite(minLine) ? 'Brak obrysów' : minLine < 0.001 ? 'Linia 0 pt (hairline) – na maszynie może zniknąć' : minLine < r.minLine ? `Najcieńsza linia ${nf(minLine, 2)} pt (min. ${r.minLine} pt)` : `Najcieńsza linia ${nf(minLine, 2)} pt`,
-    minLine < r.minLine ? ['Poprawka ręczna w projekcie: pogrubić obrysy.'] : []);
+  const minLine = Math.min(...A.pages.map(P => P.minLine)) * sf;
+  add('lines', 'Grubość linii', !Number.isFinite(minLine) ? 'info' : minLine < r.minLine ? 'err' : minLine < r.minLineWarn ? 'warn' : 'ok',
+    !Number.isFinite(minLine) ? 'Brak obrysów' : minLine < 0.001 ? 'Linia 0 pt (hairline) – na maszynie zniknie' : minLine < r.minLineWarn ? `Najcieńsza linia ${nf(minLine, 3)} pt (błąd < ${nf(r.minLine, 3)} pt, ostrzeżenie < ${nf(r.minLineWarn, 3)} pt)` : `Najcieńsza linia ${nf(minLine, 2)} pt`,
+    minLine < r.minLineWarn ? ['Poprawka ręczna w projekcie: pogrubić obrysy.'] : []);
 
   // text size
-  const minText = Math.min(...A.pages.map(P => P.minText));
-  add('text', 'Wielkość tekstu', !Number.isFinite(minText) ? 'info' : minText < r.minText ? 'warn' : 'ok',
-    !Number.isFinite(minText) ? 'Brak tekstu' : minText < r.minText ? `Najmniejszy tekst ${nf(minText, 1)} pt (min. ${r.minText} pt)` : `Najmniejszy tekst ${nf(minText, 1)} pt`);
+  const minText = Math.min(...A.pages.map(P => P.minText)) * sf;
+  add('text', 'Wielkość tekstu', !Number.isFinite(minText) ? 'info' : minText < r.minText ? 'err' : minText < r.minTextWarn ? 'warn' : 'ok',
+    !Number.isFinite(minText) ? 'Brak tekstu' : minText < r.minTextWarn ? `Najmniejszy tekst ${nf(minText, 1)} pt (błąd < ${nf(r.minText)} pt, ostrzeżenie < ${nf(r.minTextWarn)} pt)` : `Najmniejszy tekst ${nf(minText, 1)} pt`);
+
+  // text colour (GWG: black text in 4 inks, multi-ink small text, knock-out black text)
+  const t4 = A.pages.reduce((a, P) => ({ n: a.n + P.text4c.n, min: Math.min(a.min, P.text4c.min), tac: Math.max(a.tac, P.text4c.tac) }), { n: 0, min: Infinity, tac: 0 });
+  const tRgb = A.pages.reduce((a, P) => ({ n: a.n + P.textRgbBlack.n, min: Math.min(a.min, P.textRgbBlack.min) }), { n: 0, min: Infinity });
+  const multiMin = Math.min(...A.pages.map(P => P.multiMin)) * sf;
+  const ko = A.pages.reduce((s, P) => s + P.textKO, 0);
+  const tItems = [], tSt = [];
+  if (t4.n) { tSt.push(t4.tac > 280 ? 'err' : 'warn'); tItems.push(`Czarny tekst z 4 farb (do ${nf(t4.tac, 0)}%, od ${nf(t4.min * sf, 1)} pt)${t4.tac > 280 ? ' – GWG: tekst z K > 85% maks. 280%' : ''}. Przy niedokładnym pasowaniu będzie rozmyty – ustaw 100K.`) }
+  if (tRgb.n) { tSt.push(r.cmykOnly ? 'warn' : 'info'); tItems.push(`Czarny tekst w RGB (${tRgb.n}×, od ${nf(tRgb.min * sf, 1)} pt) – po konwersji do CMYK zrobi się z 4 farb. Ustaw 100K.`) }
+  if (multiMin < r.minTextMulti) { tSt.push('warn'); tItems.push(`Tekst kolorowy z 2+ farb ma ${nf(multiMin, 1)} pt (min. ${r.minTextMulti} pt) – ryzyko rozmycia.`) }
+  if (ko) { tSt.push('info'); tItems.push(`Czarny tekst < 12 pt bez nadruku (${ko}×) – zalecany nadruk (overprint), żeby nie było białych prześwitów.`) }
+  const anyText = Number.isFinite(minText);
+  add('textcolor', 'Kolor tekstu', !anyText ? 'info' : tSt.length ? worst(...tSt) : 'ok',
+    !anyText ? 'Brak tekstu' : tItems.length ? tItems[0].split(' – ')[0].split('. ')[0] : 'Czarny tekst 100K, kolorowy tekst czytelny', tItems.length > 1 || tItems.length === 1 ? tItems : []);
 
   // safe zone
   const outside = [];
   A.pages.forEach((P, i) => {
     if (!P.textItems) return;
-    const g = geos[i], s = r.safe * MM, safe = { x0: g.trim.x0 + s, y0: g.trim.y0 + s, x1: g.trim.x1 - s, y1: g.trim.y1 - s };
+    const g = geos[i], s = r.safe * MM / sf, safe = { x0: g.trim.x0 + s, y0: g.trim.y0 + s, x1: g.trim.x1 - s, y1: g.trim.y1 - s };
     P.textOutside = P.textItems.filter(t => t.x0 < safe.x0 - 0.5 || t.y0 < safe.y0 - 0.5 || t.x1 > safe.x1 + 0.5 || t.y1 > safe.y1 + 0.5);
     P.textOutside.forEach(t => outside.push(`Str. ${i + 1}: „${t.str.slice(0, 40)}”`));
   });
   add('safe', 'Margines bezpieczeństwa', outside.length ? 'warn' : 'ok',
-    outside.length ? `${outside.length} ${outside.length === 1 ? 'tekst' : 'teksty'} bliżej niż ${r.safe} mm od linii cięcia` : `Teksty co najmniej ${r.safe} mm od linii cięcia`, outside.slice(0, 12));
+    outside.length ? `${plural(outside.length, 'tekst', 'teksty', 'tekstów')} bliżej niż ${r.safe} mm od linii cięcia` : `Teksty co najmniej ${r.safe} mm od linii cięcia`, outside.slice(0, 12));
 
   // transparency / overprint
-  const tr = A.pages.some(P => P.transparency), ov = A.pages.some(P => P.overprint);
-  add('transp', 'Przezroczystości i nadruk', tr || ov ? 'info' : 'ok',
-    [tr && 'Zawiera przezroczystości', ov && 'Włączony nadruk (overprint)'].filter(Boolean).join(' · ') || 'Brak',
-    tr ? ['Spłaszczenie przy poprawce automatycznej usuwa ryzyko przy starszych RIP-ach.'] : []);
+  const tr = A.pages.some(P => P.transparency), ov = A.pages.some(P => P.overprint), wop = A.pages.reduce((s, P) => s + P.whiteOP, 0);
+  add('transp', 'Przezroczystości i nadruk', wop ? 'err' : tr || ov ? 'info' : 'ok',
+    wop ? `${plural(wop, 'biały obiekt', 'białe obiekty', 'białych obiektów')} z nadrukiem – na druku ${wop === 1 ? 'zniknie' : 'znikną'}` : [tr && 'Zawiera przezroczystości', ov && 'Używa nadruku (overprint)'].filter(Boolean).join(' · ') || 'Brak',
+    [...(wop ? ['Biały kolor z nadrukiem nie drukuje się wcale. Wyłącz nadruk dla białych elementów.'] : []), ...(tr ? ['Spłaszczenie przy poprawce automatycznej usuwa ryzyko przy starszych RIP-ach.'] : [])]);
+
+  // PDF/X & output intent
+  const oi = (A.outputIntents || []).find(o => o.s === 'GTS_PDFX') || (A.outputIntents || [])[0];
+  add('pdfx', 'Standard pliku (PDF/X)', A.pdfx && !oi ? 'warn' : 'info',
+    A.pdfx ? `${A.pdfx}${oi ? ` · warunki druku: ${oi.id || 'zdefiniowane'}` : ' bez output intent'}` : oi ? `Zwykły PDF z output intent: ${oi.id || 'zdefiniowany'}` : 'Zwykły PDF, brak output intent',
+    A.pdfx ? [] : ['Zalecany eksport PDF/X-4 z profilem drukarni (np. PSO Coated v3 / ISO Coated v2).']);
 
   add('pages', 'Liczba stron', 'info', `${A.pages.length}`);
   return C;
@@ -740,7 +851,7 @@ async function buildFixed(A, src, r, opts, onProgress) {
   if (opts.mode === 'boxes') {
     const doc = await PDFDocument.load(src.pdfBytes, { ignoreEncryption: true, updateMetadata: false });
     doc.getPages().forEach((pg, i) => {
-      const g = pageGeometry(A.pages[i], r);
+      const g = pageGeometry(A.pages[i], r, A.sf || 1), bleedPt = r.bleed * MM / (A.sf || 1);
       pg.setTrimBox(g.trim.x0, g.trim.y0, g.trim.x1 - g.trim.x0, g.trim.y1 - g.trim.y0);
       pg.setBleedBox(g.trim.x0 - bleedPt, g.trim.y0 - bleedPt, g.trim.x1 - g.trim.x0 + 2 * bleedPt, g.trim.y1 - g.trim.y0 + 2 * bleedPt);
     });
@@ -905,7 +1016,7 @@ function setBusy(on, msg) { S.busy = on; const b = $('#busy'); b.hidden = !on; i
 function renderFileInfo() {
   const el = $('#fileInfo'), s = S.src, A = S.A; el.hidden = false;
   const P = A.pages[0];
-  const g = P ? pageGeometry(P, prof().rules) : null;
+  const g = P ? pageGeometry(P, prof().rules, A.sf || 1) : null;
   el.innerHTML = `<div class="name">${esc(s.name)}</div>
     <div class="kv">Typ<b>${s.kind.toUpperCase()}</b></div>
     <div class="kv">Rozmiar<b class="num">${nf(s.size / 1024 / 1024, 2)} MB</b></div>
@@ -926,7 +1037,8 @@ function renderReport() {
   const verdictCls = c.err ? 'err' : c.warn ? 'warn' : 'ok';
   const verdictTxt = c.err ? (S.fixedChecks ? 'Po poprawkach nadal są błędy' : 'Plik wymaga poprawek') : c.warn ? 'Do druku, z uwagami' : 'Gotowy do druku';
   const before = Object.fromEntries(S.checks.map(k => [k.id, k]));
-  const fixable = S.checks.filter(k => k.fix);
+  const rasterBlock = S.A.sf !== 1 ? 'Plik jest w skali 1:10 – spłaszczenie wymaga pełnego formatu, popraw plik w projekcie.' : S.checks.some(k => k.id === 'die') ? 'Plik ma linię cięcia (wykrojnik) – spłaszczenie wtopiłoby ją w grafikę, więc poprawki automatyczne są wyłączone.' : '';
+  const fixable = S.checks.filter(k => k.fix && (!rasterBlock || k.fix === 'boxes'));
   const fixKinds = new Set(fixable.map(k => k.fix));
 
   let html = `<div class="verdict">
@@ -940,6 +1052,7 @@ function renderReport() {
     <p class="hint">Profil: ${esc(p.name)} · <span class="ver">v${p.version}</span> · ${nf(r.w)} × ${nf(r.h)} mm + ${nf(r.bleed)} mm spadu</p>
   </div>`;
 
+  if (!S.fixed && rasterBlock && S.checks.some(k => k.fix && k.fix !== 'boxes')) html += `<div class="fixbox"><p class="warnnote">${esc(rasterBlock)}</p></div>`;
   if (!S.fixed && fixable.length && !S.A.error && !S.A.encrypted) {
     const onlyBoxes = fixKinds.size === 1 && fixKinds.has('boxes');
     html += `<div class="fixbox">
@@ -950,7 +1063,7 @@ function renderReport() {
       ${fixKinds.has('scale') ? `<label class="chk"><input type="checkbox" id="fx_scale" checked> Przeskaluj do ${nf(r.w)} × ${nf(r.h)} mm</label>` : ''}
       ${fixKinds.has('flatten') ? `<label class="chk"><input type="checkbox" checked disabled> Zamień tekst na obraz (brak osadzonych czcionek)</label>` : ''}
       <label class="f">Rozdzielczość pliku wynikowego
-        <select class="sel" id="fx_dpi">${[150, 200, 300, 400].map(d => `<option value="${d}" ${d === Math.max(150, Math.min(400, r.dpiTarget >= 300 ? 300 : r.dpiTarget >= 200 ? 200 : 150)) ? 'selected' : ''}>${d} dpi</option>`).join('')}</select></label>
+        <select class="sel" id="fx_dpi">${[150, 200, 300, 400].map(d => `<option value="${d}" ${d === (r.dpiMin >= 150 ? 300 : r.dpiMin >= 100 ? 200 : 150) ? 'selected' : ''}>${d} dpi</option>`).join('')}</select></label>
       <p class="warnnote">Poprawka spłaszcza stronę do obrazu CMYK: tekst i wektory przestają być edytowalne. Konwersja barw jest uproszczona (bez profilu ICC) – przy pracach z krytycznym kolorem przygotuj plik w programie źródłowym z profilem drukarni.</p>`}
       <button class="btn primary full" id="btnFix" type="button">${onlyBoxes ? 'Ustaw linie cięcia' : 'Przygotuj poprawiony plik'}</button>
     </div>`;
@@ -1015,7 +1128,7 @@ async function runFix() {
     $('#busy').textContent = 'Sprawdzam plik po poprawkach…';
     S.fixedA = await analyze(S.fixed.bytes);
     // Flattening hides some problems from the checker without solving them: keep the original verdict for those.
-    const CARRY = opts.mode === 'raster' ? ['dpi', 'lines', 'text', 'safe'] : [];
+    const CARRY = opts.mode === 'raster' ? ['dpi', 'lines', 'text', 'textcolor', 'safe'] : [];
     S.fixedChecks = buildChecks(S.fixedA, r).map(k => {
       const b = S.checks.find(x => x.id === k.id);
       if (b && CARRY.includes(k.id)) return { ...b, summary: b.summary + (b.status === 'ok' || b.status === 'info' ? '' : ' – wynik z oryginału, poprawka automatyczna tego nie usuwa'), wasFixed: false };
@@ -1109,7 +1222,8 @@ async function drawView() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const availW = Math.max(240, stage.clientWidth - 24), availH = Math.max(360, Math.min(window.innerHeight * 0.78, 1100));
   const r = prof().rules;
-  const P = S.A.pages[S.page], g = pageGeometry(P, r);
+  const sf = S.A.sf || 1;
+  const P = S.A.pages[S.page], g = pageGeometry(P, r, sf);
   const pad = 22; // room for crop marks
   const pw = P.vis.x1 - P.vis.x0, ph = P.vis.y1 - P.vis.y0;
   const rot = P.rotate % 180 !== 0;
@@ -1117,7 +1231,7 @@ async function drawView() {
 
   if (S.view === 'compare' && S.fixed) {
     const FP = S.fixedA.pages[S.page]; if (!FP) return;
-    const fg = pageGeometry(FP, r);
+    const fg = pageGeometry(FP, r, S.fixedA.sf || 1);
     const fpw = FP.vis.x1 - FP.vis.x0, fph = FP.vis.y1 - FP.vis.y0;
     const scale = Math.min((availW - 2 * pad) / fpw, (availH - 2 * pad) / fph) * dpr;
     const [A1, B1] = await Promise.all([renderPage(S.A.pdfjs, S.page, scale * (S.fixed.opts.scale ? (fg.trim.x1 - fg.trim.x0) / (rot ? g.trim.y1 - g.trim.y0 : g.trim.x1 - g.trim.x0) : 1)), renderPage(S.fixedA.pdfjs, S.page, scale)]);
@@ -1156,14 +1270,14 @@ async function drawView() {
     const lw = 1.2 * dpr;
     const tr = vpRect(vp, g.trim);
     // low-dpi images
-    P.images.filter(im => im.dpi < r.dpiTarget).forEach(im => { const q = vpRect(vp, im.bbox); c.fillStyle = 'rgba(245,163,0,.22)'; c.fillRect(q.x, q.y, q.w, q.h); c.strokeStyle = '#F5A300'; c.lineWidth = lw; c.strokeRect(q.x, q.y, q.w, q.h); c.fillStyle = '#7a4d00'; c.font = `${11 * dpr}px "JetBrains Mono", monospace`; const lbl = `${Math.round(im.dpi)} dpi`; c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(q.x + 4 * dpr, q.y + 4 * dpr, c.measureText(lbl).width + 8 * dpr, 16 * dpr); c.fillStyle = '#8a5200'; c.fillText(lbl, q.x + 8 * dpr, q.y + 16 * dpr) });
+    P.images.filter(im => ['err', 'warn'].includes(imgLevel(im, r, sf))).forEach(im => { const q = vpRect(vp, im.bbox); c.fillStyle = 'rgba(245,163,0,.22)'; c.fillRect(q.x, q.y, q.w, q.h); c.strokeStyle = '#F5A300'; c.lineWidth = lw; c.strokeRect(q.x, q.y, q.w, q.h); c.fillStyle = '#7a4d00'; c.font = `${11 * dpr}px "JetBrains Mono", monospace`; const lbl = `${Math.round(im.dpi / sf)} dpi`; c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(q.x + 4 * dpr, q.y + 4 * dpr, c.measureText(lbl).width + 8 * dpr, 16 * dpr); c.fillStyle = '#8a5200'; c.fillText(lbl, q.x + 8 * dpr, q.y + 16 * dpr) });
     // text too close to the edge
     (P.textOutside || []).forEach(t => { const q = vpRect(vp, t); c.fillStyle = 'rgba(194,43,43,.25)'; c.fillRect(q.x, q.y, q.w, q.h); c.strokeStyle = '#C22B2B'; c.lineWidth = lw; c.strokeRect(q.x, q.y, q.w, q.h) });
     // bleed target
-    const bpx = r.bleed * MM * fit * dpr;
+    const bpx = r.bleed * MM / sf * fit * dpr;
     c.setLineDash([]); c.lineWidth = lw; c.strokeStyle = '#E0207F'; c.strokeRect(tr.x - bpx, tr.y - bpx, tr.w + 2 * bpx, tr.h + 2 * bpx);
     c.strokeStyle = '#00A0DF'; c.strokeRect(tr.x, tr.y, tr.w, tr.h);
-    const spx = r.safe * MM * fit * dpr; c.setLineDash([5 * dpr, 4 * dpr]); c.strokeRect(tr.x + spx, tr.y + spx, tr.w - 2 * spx, tr.h - 2 * spx);
+    const spx = r.safe * MM / sf * fit * dpr; c.setLineDash([5 * dpr, 4 * dpr]); c.strokeRect(tr.x + spx, tr.y + spx, tr.w - 2 * spx, tr.h - 2 * spx);
     c.restore();
     cropMarks(c, { x: P2 + tr.x, y: P2 + tr.y, w: tr.w, h: tr.h }, P2, dpr);
   }
