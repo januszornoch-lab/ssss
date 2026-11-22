@@ -48,5 +48,7 @@ akceptacja do druku (kto, kiedy, SHA-256 pliku), raport TXT/JSON, historia ostat
 
 ## Przykłady i wielki format
 Menu „Przykładowe pliki”: ulotka A5 z typowymi błędami, poprawna wizytówka, naklejka z wykrojnikiem, baner 300 × 100 cm w skali 1:10, roll-up 85 × 205 cm.
-Profile wielkoformatowe: baner PVC frontlit, siatka mesh, naklejka / folia wycinana (wymagana linia cięcia), folia na witrynę OWV, backlit, roll-up.
-Ich progi są wstępne i wymagają potwierdzenia z maszyną i dostawcą materiału.
+Profile wielkoformatowe (v3): baner PVC frontlit, siatka mesh, naklejka / folia wycinana (wymagana linia cięcia), folia na witrynę OWV, backlit, billboard 504 × 238 cm, roll-up.
+Wartości wg Amtex (https://www.amtex.pl/centrum-wiedzy/przygotowywanie-plikow/druk-wielkoformatowy), StudioDAR (https://www.sklep.studiodar.pl/pomoc/jak-przygotowac-pliki-do-druku)
+i AMS (billboard, skala 1:10). Minimalne rozmiary tekstu w wielkim formacie nie są publikowane przez drukarnie – to szacunek do potwierdzenia.
+Nadruk na linii cięcia jest ustawieniem profilu (Amtex: bez nadruku; GWG/DrukujSam: z nadrukiem). Grubość linii cięcia kontrolowana (zalecane 0,2–0,3 pt).

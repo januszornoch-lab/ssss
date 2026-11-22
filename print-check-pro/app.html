@@ -217,6 +217,7 @@ table.hist { width: 100%; border-collapse: collapse; font-size: 12px }
         <label class="chk"><input id="r_allowSpot" type="checkbox"> Dozwolone kolory dodatkowe (Pantone)</label>
         <label class="chk"><input id="r_fontsEmbedded" type="checkbox"> Wymagane osadzone czcionki</label>
         <label class="chk"><input id="r_dieRequired" type="checkbox"> Wymagana linia cięcia (CutContour / wykrojnik)</label>
+        <label class="chk"><input id="r_dieOverprint" type="checkbox"> Linia cięcia z nadrukiem (overprint)</label>
         <div class="dlrow">
           <button class="btn sm primary" id="btnSaveProf" type="button" disabled>Zapisz jako nową wersję</button>
           <button class="btn sm" id="btnResetProf" type="button">Przywróć domyślne</button>
@@ -301,7 +302,7 @@ async function saveFile(filename, data) {
 
 /* ---------- profiles (versioned rule sets) ---------- */
 // Thresholds follow Ghent Workgroup GWG 2015 sheetfed CMYK (via prepressure.com, automatalabs.ca) and ICC registry TAC limits (FOGRA51/52: 300%).
-const BASE = { dpiMin: 150, dpiTarget: 225, dpiMax: 450, tac: 300, minLine: 0.125, minLineWarn: 0.25, minText: 5, minTextWarn: 6, minTextMulti: 9, cmykOnly: true, allowSpot: false, fontsEmbedded: true, dieRequired: false };
+const BASE = { dpiMin: 150, dpiTarget: 225, dpiMax: 450, tac: 300, minLine: 0.125, minLineWarn: 0.25, minText: 5, minTextWarn: 6, minTextMulti: 9, cmykOnly: true, allowSpot: false, fontsEmbedded: true, dieRequired: false, dieOverprint: true };
 const WF = 'wielki format – wartości wstępne, do potwierdzenia z maszyną i dostawcą materiału';
 const V2 = 'progi wg GWG 2015 (dpi 150/225, linia 0,125/0,25 pt, tekst 5/6 pt, tekst wielobarwny 9 pt)';
 const DEFAULT_PROFILES = [
@@ -310,16 +311,18 @@ const DEFAULT_PROFILES = [
   { id: 'a4', name: 'Ulotka / plakat A4 · offset', rules: { ...BASE, w: 210, h: 297, bleed: 3, safe: 4 } },
   { id: 'wiz', name: 'Wizytówka 90 × 50', rules: { ...BASE, w: 90, h: 50, bleed: 2, safe: 3 } },
   { id: 'b2', name: 'Plakat B2 · druk cyfrowy', rules: { ...BASE, w: 500, h: 700, bleed: 3, safe: 5, dpiMin: 120, dpiTarget: 175, minLine: 0.25, minLineWarn: 0.25, minText: 6, minTextWarn: 8 } },
-  { id: 'banner', name: 'Baner PVC frontlit (np. 300 × 100 cm)', group: 'wf', rules: { ...BASE, w: 3000, h: 1000, bleed: 0, safe: 50, dpiMin: 50, dpiTarget: 72, dpiMax: 200, tac: 280, minLine: 1, minLineWarn: 2, minText: 24, minTextWarn: 36 }, note: WF },
-  { id: 'mesh', name: 'Siatka mesh (np. 300 × 200 cm)', group: 'wf', rules: { ...BASE, w: 3000, h: 2000, bleed: 0, safe: 50, dpiMin: 40, dpiTarget: 72, dpiMax: 150, tac: 260, minLine: 2, minLineWarn: 4, minText: 36, minTextWarn: 60 }, note: WF },
-  { id: 'sticker', name: 'Naklejka / folia wycinana 100 × 100 mm', group: 'wf', rules: { ...BASE, w: 100, h: 100, bleed: 2, safe: 3, dpiTarget: 300, tac: 280, dieRequired: true }, note: WF },
-  { id: 'owv', name: 'Folia na witrynę OWV (np. 100 × 150 cm)', group: 'wf', rules: { ...BASE, w: 1000, h: 1500, bleed: 10, safe: 20, dpiMin: 72, dpiTarget: 100, dpiMax: 200, tac: 260, minLine: 1, minLineWarn: 2, minText: 24, minTextWarn: 36 }, note: WF },
-  { id: 'backlit', name: 'Backlit do kasetonu (np. 70 × 100 cm)', group: 'wf', rules: { ...BASE, w: 700, h: 1000, bleed: 5, safe: 20, dpiMin: 100, dpiTarget: 150, dpiMax: 300, tac: 300, minLine: 0.5, minLineWarn: 1, minText: 12, minTextWarn: 18 }, note: WF },
-  { id: 'rollup', name: 'Roll-up 85 × 200 cm', group: 'wf', rules: { ...BASE, w: 850, h: 2050, bleed: 0, safe: 20, dpiMin: 72, dpiTarget: 120, dpiMax: 200, tac: 280, minLine: 0.5, minLineWarn: 0.5, minText: 14, minTextWarn: 20 }, note: 'plik 850 × 2050 mm (dół chowa się w kasecie), bez spadu, dpi 72/120 wg Printsmarket' }
-].map(p => ({ ...p, version: 2, updated: '22.11.2026', note: p.note || V2, history: [{ version: 1, note: 'wartości początkowe' }] }));
+  // Wide format v3: Amtex (amtex.pl/centrum-wiedzy/przygotowywanie-plikow), StudioDAR (sklep.studiodar.pl/pomoc), AMS billboard spec. Min. text sizes are not published by these shops – own estimate.
+  { id: 'banner', name: 'Baner PVC frontlit (np. 300 × 100 cm)', group: 'wf', version: 3, rules: { ...BASE, w: 3000, h: 1000, bleed: 0, safe: 50, dpiMin: 40, dpiTarget: 100, dpiMax: 200, tac: 300, minLine: 1, minLineWarn: 2, minText: 24, minTextWarn: 36 }, note: 'wg Amtex/StudioDAR: margines 5–7 cm pod zgrzew i oczka, 100–120 dpi dla 300×100 cm, TAC ≤ 300%, spad 2 cm tylko przy dokładnym wymiarze; min. tekst – szacunek' },
+  { id: 'mesh', name: 'Siatka mesh (np. 300 × 200 cm)', group: 'wf', version: 3, rules: { ...BASE, w: 3000, h: 2000, bleed: 0, safe: 50, dpiMin: 30, dpiTarget: 72, dpiMax: 150, tac: 300, minLine: 2, minLineWarn: 4, minText: 36, minTextWarn: 60 }, note: 'wg Amtex: jak baner, drobny tekst i cienkie linie giną w perforacji; 30–50 dpi przy > 20 m²; min. tekst – szacunek' },
+  { id: 'sticker', name: 'Naklejka / folia wycinana 100 × 100 mm', group: 'wf', version: 3, rules: { ...BASE, w: 100, h: 100, bleed: 3, safe: 3, dpiTarget: 300, tac: 300, dieRequired: true, dieOverprint: false }, note: 'linia cięcia CutContour 0,2–0,3 pt (Amtex: bez nadruku, inne drukarnie: z nadrukiem – ustaw wg swojego plotera); spad 3 mm' },
+  { id: 'owv', name: 'Folia na witrynę OWV (np. 100 × 150 cm)', group: 'wf', version: 3, rules: { ...BASE, w: 1000, h: 1500, bleed: 2.5, safe: 50, dpiMin: 72, dpiTarget: 100, dpiMax: 200, tac: 300, minLine: 1, minLineWarn: 2, minText: 24, minTextWarn: 36 }, note: 'wg Amtex/StudioDAR: margines 5 cm, spad 2,5 mm, perforacja 40% (otwory 1,6 mm) – unikaj drobnych treści; dpi i min. tekst – szacunek' },
+  { id: 'backlit', name: 'Backlit do kasetonu (np. 70 × 100 cm)', group: 'wf', version: 3, rules: { ...BASE, w: 700, h: 1000, bleed: 2.5, safe: 50, dpiMin: 100, dpiTarget: 150, dpiMax: 300, tac: 300, minLine: 0.5, minLineWarn: 1, minText: 12, minTextWarn: 18 }, note: 'wg Amtex/StudioDAR: margines 5 cm, spad 2,5 mm, citylight 150 dpi; druk 2× CMYK (double hit) – limit farby uzgodnij z drukarnią' },
+  { id: 'billboard', name: 'Billboard 504 × 238 cm', group: 'wf', version: 3, rules: { ...BASE, w: 5040, h: 2380, bleed: 30, safe: 100, dpiMin: 25, dpiTarget: 36, dpiMax: 100, tac: 300, minLine: 3, minLineWarn: 5, minText: 72, minTextWarn: 120 }, note: 'wg AMS: plik w skali 1:10 (504 × 238 mm + 3 mm spadu), 360 dpi w skali 1:10 = 36 dpi w rzeczywistości; margines i min. tekst – szacunek' },
+  { id: 'rollup', name: 'Roll-up 85 × 200 cm', group: 'wf', version: 3, rules: { ...BASE, w: 850, h: 2050, bleed: 0, safe: 50, dpiMin: 72, dpiTarget: 120, dpiMax: 200, tac: 300, minLine: 0.5, minLineWarn: 0.5, minText: 14, minTextWarn: 20 }, note: 'plik 850 × 2050 mm (Grafton; Amtex: 850 × 2030, widoczne 1970) – sprawdź wymiar kasety; 5 cm od dołu chowa się w kasecie; 120 dpi (Printsmarket) / 150 (Amtex)' }
+].map(p => ({ ...p, version: p.version || 2, updated: '22.11.2026', note: p.note || V2, history: [{ version: 1, note: 'wartości początkowe' }] }));
 const RULE_KEYS = ['w', 'h', 'bleed', 'safe', 'dpiMin', 'dpiTarget', 'dpiMax', 'tac', 'minLine', 'minLineWarn', 'minText', 'minTextWarn', 'minTextMulti'];
-const BOOL_KEYS = ['cmykOnly', 'allowSpot', 'fontsEmbedded', 'dieRequired'];
-const SCHEMA = 3;
+const BOOL_KEYS = ['cmykOnly', 'allowSpot', 'fontsEmbedded', 'dieRequired', 'dieOverprint'];
+const SCHEMA = 4;
 let profiles = store.get('profiles', null);
 if (!profiles || store.get('schema', 1) < SCHEMA) {
   // upgrade: untouched profiles get the new defaults, profiles edited by the user keep their values and gain new rule fields
@@ -507,6 +510,7 @@ function interpret(bytes, res, ctm0, P, depth, FX) {
         const eff = gs.lw * scaleOf(gs.ctm);
         P.strokes++;
         const dieStroke = gs.scs.fam === 'spot' && gs.scs.spots.some(n => DIE_RE.test(n));
+        if (dieStroke) { P.dieW.min = Math.min(P.dieW.min, eff); P.dieW.max = Math.max(P.dieW.max, eff) }
         if (!dieStroke && eff < P.minLine) P.minLine = eff;
         paint(gs.scs, gs.sv, gs.opS);
         if (o !== 'S' && o !== 's') paint(gs.fcs, gs.fv, gs.opF);
@@ -698,7 +702,7 @@ function newPageStats(extra) {
   return Object.assign({
     images: [], minLine: Infinity, minText: Infinity, strokes: 0, rgbVec: 0, cmykVec: 0, labVec: 0, vecTac: 0, rgbText: false,
     spots: new Set(), transparency: false, overprint: false, shadings: 0, inlineImages: 0, fonts: new Map(), textOutside: [], estTac: 0, estTacMax: 0,
-    whiteOP: 0, die: new Map(), text4c: { n: 0, min: Infinity, tac: 0 }, textRgbBlack: { n: 0, min: Infinity }, multiMin: Infinity, textKO: 0
+    whiteOP: 0, die: new Map(), dieW: { min: Infinity, max: 0 }, text4c: { n: 0, min: Infinity, tac: 0 }, textRgbBlack: { n: 0, min: Infinity }, multiMin: Infinity, textKO: 0
   }, extra);
 }
 function pageContentBytes(node) {
@@ -734,7 +738,7 @@ async function analyze(bytes) {
       rotate: num(inherited(node, 'Rotate')) || 0,
       images: [], minLine: Infinity, minText: Infinity, strokes: 0, rgbVec: 0, cmykVec: 0, labVec: 0, vecTac: 0, rgbText: false,
       spots: new Set(), transparency: false, overprint: false, shadings: 0, inlineImages: 0, fonts: fontsAll, textOutside: [], estTac: 0, estTacMax: 0,
-      whiteOP: 0, die: new Map(), text4c: { n: 0, min: Infinity, tac: 0 }, textRgbBlack: { n: 0, min: Infinity }, multiMin: Infinity, textKO: 0, cropDiffers: !!crop && ['x0', 'y0', 'x1', 'y1'].some(k => Math.abs(crop[k] - media[k]) > 0.5)
+      whiteOP: 0, die: new Map(), dieW: { min: Infinity, max: 0 }, text4c: { n: 0, min: Infinity, tac: 0 }, textRgbBlack: { n: 0, min: Infinity }, multiMin: Infinity, textKO: 0, cropDiffers: !!crop && ['x0', 'y0', 'x1', 'y1'].some(k => Math.abs(crop[k] - media[k]) > 0.5)
     };
     const res = inherited(node, 'Resources');
     collectFonts(res, P);
@@ -875,10 +879,16 @@ function buildChecks(A, r) {
   A.pages.forEach(P => P.die.forEach((d, n) => { const e = dies.get(n) || { name: n, uses: 0, knockout: 0 }; e.uses += d.uses; e.knockout += d.knockout; dies.set(n, e) }));
   if (!dies.size && r.dieRequired) add('die', 'Wykrojnik / linia cięcia', 'err', 'Brak linii cięcia – profil jej wymaga', ['Dodaj ścieżkę wektorową w kolorze dodatkowym o nazwie np. CutContour, z nadrukiem, na osobnej warstwie.']);
   if (dies.size) {
-    const ko = [...dies.values()].filter(d => d.knockout);
-    add('die', 'Wykrojnik / linia cięcia', ko.length ? 'warn' : 'ok',
-      ko.length ? `${[...dies.keys()].join(', ')} bez nadruku – wybije białą linię w grafice` : `${[...dies.keys()].join(', ')} z nadrukiem (overprint)`,
-      [...[...dies.values()].map(d => `${d.name}: ${d.uses} ${d.uses === 1 ? 'użycie' : 'użyć'}${d.knockout ? `, ${d.knockout} bez nadruku` : ''}`), 'Linia cięcia ma być wektorem w kolorze dodatkowym, z nadrukiem, na osobnej warstwie.'], ko.length ? 'dieop' : null);
+    const ko = [...dies.values()].filter(d => d.knockout), names = [...dies.keys()].join(', ');
+    const dw = { min: Math.min(...A.pages.map(P => P.dieW.min)) * sf, max: Math.max(...A.pages.map(P => P.dieW.max)) * sf };
+    const badW = Number.isFinite(dw.min) && (dw.min < 0.1 || dw.max > 1);
+    const opBad = r.dieOverprint && ko.length;
+    add('die', 'Wykrojnik / linia cięcia', opBad || badW ? 'warn' : 'ok',
+      opBad ? `${names} bez nadruku – wybije białą linię w grafice` : badW ? `${names}: grubość ${nf(dw.min, 2)}–${nf(dw.max, 2)} pt (zalecane 0,2–0,3 pt)` : `${names}${ko.length ? ' bez nadruku' : ' z nadrukiem'}${Number.isFinite(dw.min) ? `, ${nf(dw.min, 2)} pt` : ''}`,
+      [...[...dies.values()].map(d => `${d.name}: ${d.uses} ${d.uses === 1 ? 'użycie' : 'użyć'}${d.knockout ? `, ${d.knockout} bez nadruku` : ''}`),
+       Number.isFinite(dw.min) ? `Grubość linii cięcia: ${nf(dw.min, 2)}–${nf(dw.max, 2)} pt (zalecane 0,2–0,3 pt)` : 'Linia cięcia nie jest obrysem – sprawdź, czy ploter ją odczyta',
+       r.dieOverprint ? 'Profil wymaga nadruku na linii cięcia.' : 'Profil nie wymaga nadruku na linii cięcia (Amtex: bez nadruku).',
+       'Linia cięcia ma być wektorem w kolorze dodatkowym (nazwa jak w ploterze, wielkość liter ma znaczenie), na osobnej warstwie, bez znaczników cięcia.'], opBad ? 'dieop' : null);
   }
 
   // TAC
