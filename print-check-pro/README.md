@@ -27,6 +27,14 @@ Profile zapisane wcześniej w przeglądarce: nieedytowane przechodzą na v2, edy
 https://registry.color.org/profile-registry/PSOuncoated_v3_FOGRA52 · https://printsmarket.pl/article/rozdzielczosci-plikow
 
 ## Poprawki automatyczne
+Bezstratne (treść zostaje wektorowa, program przepisuje tylko strumienie treści PDF):
+- czarny tekst (4 farby, RGB, 100K bez nadruku) → 100K z nadrukiem;
+- wyłączenie nadruku na białych elementach;
+- nadruk na linii cięcia (CutContour / wykrojnik);
+- ustawienie TrimBox/BleedBox.
+Po każdej poprawce „Kontrola po poprawce” porównuje liczbę tekstów, obrazów, czcionek i stron przed i po.
+
+Ze spłaszczeniem (opcjonalnie):
 - Ustawienie TrimBox/BleedBox, gdy spad jest w pliku (bezstratnie).
 - Spłaszczenie do obrazu CMYK (150–400 dpi): dodanie spadu przez lustrzane odbicie krawędzi, konwersja RGB→CMYK z limitem TAC,
   skalowanie do formatu przy zgodnych proporcjach, usunięcie problemu nieosadzonych czcionek.
@@ -37,3 +45,8 @@ Konwersja barw jest uproszczona (bez profilu ICC). Do prac z krytycznym kolorem 
 ## Pozostałe
 Profile kontroli są wersjonowane (każda zmiana reguł = nowa wersja, raport podaje wersję). Porównanie przed/po z suwakiem,
 akceptacja do druku (kto, kiedy, SHA-256 pliku), raport TXT/JSON, historia ostatnich kontroli w przeglądarce.
+
+## Przykłady i wielki format
+Menu „Przykładowe pliki”: ulotka A5 z typowymi błędami, poprawna wizytówka, naklejka z wykrojnikiem, baner 300 × 100 cm w skali 1:10, roll-up 85 × 205 cm.
+Profile wielkoformatowe: baner PVC frontlit, siatka mesh, naklejka / folia wycinana (wymagana linia cięcia), folia na witrynę OWV, backlit, roll-up.
+Ich progi są wstępne i wymagają potwierdzenia z maszyną i dostawcą materiału.

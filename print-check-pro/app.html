@@ -163,7 +163,15 @@ table.hist { width: 100%; border-collapse: collapse; font-size: 12px }
       <i style="background:var(--c)"></i><i style="background:var(--m)"></i><i style="background:var(--y)"></i><i style="background:#1B1F24"></i><i style="background:color-mix(in srgb,#1B1F24 50%,#fff)"></i><i style="background:color-mix(in srgb,#1B1F24 25%,#fff)"></i>
     </div>
     <div class="top-actions">
-      <button class="btn sm" id="btnSample" type="button">Wczytaj przykład</button>
+      <label class="sr" for="sampleSel">Przykładowe pliki</label>
+      <select class="sel" id="sampleSel" style="width:auto;max-width:100%">
+        <option value="">Przykładowe pliki…</option>
+        <option value="a5">Ulotka A5 – typowe błędy</option>
+        <option value="wiz">Wizytówka – plik poprawny</option>
+        <option value="sticker">Naklejka z wykrojnikiem (folia)</option>
+        <option value="banner">Baner 300 × 100 cm (skala 1:10)</option>
+        <option value="rollup">Roll-up 85 × 205 cm (1:1)</option>
+      </select>
     </div>
   </div>
 </header>
@@ -208,6 +216,7 @@ table.hist { width: 100%; border-collapse: collapse; font-size: 12px }
         <label class="chk"><input id="r_cmykOnly" type="checkbox"> Tylko CMYK (RGB = błąd)</label>
         <label class="chk"><input id="r_allowSpot" type="checkbox"> Dozwolone kolory dodatkowe (Pantone)</label>
         <label class="chk"><input id="r_fontsEmbedded" type="checkbox"> Wymagane osadzone czcionki</label>
+        <label class="chk"><input id="r_dieRequired" type="checkbox"> Wymagana linia cięcia (CutContour / wykrojnik)</label>
         <div class="dlrow">
           <button class="btn sm primary" id="btnSaveProf" type="button" disabled>Zapisz jako nową wersję</button>
           <button class="btn sm" id="btnResetProf" type="button">Przywróć domyślne</button>
@@ -292,7 +301,8 @@ async function saveFile(filename, data) {
 
 /* ---------- profiles (versioned rule sets) ---------- */
 // Thresholds follow Ghent Workgroup GWG 2015 sheetfed CMYK (via prepressure.com, automatalabs.ca) and ICC registry TAC limits (FOGRA51/52: 300%).
-const BASE = { dpiMin: 150, dpiTarget: 225, dpiMax: 450, tac: 300, minLine: 0.125, minLineWarn: 0.25, minText: 5, minTextWarn: 6, minTextMulti: 9, cmykOnly: true, allowSpot: false, fontsEmbedded: true };
+const BASE = { dpiMin: 150, dpiTarget: 225, dpiMax: 450, tac: 300, minLine: 0.125, minLineWarn: 0.25, minText: 5, minTextWarn: 6, minTextMulti: 9, cmykOnly: true, allowSpot: false, fontsEmbedded: true, dieRequired: false };
+const WF = 'wielki format – wartości wstępne, do potwierdzenia z maszyną i dostawcą materiału';
 const V2 = 'progi wg GWG 2015 (dpi 150/225, linia 0,125/0,25 pt, tekst 5/6 pt, tekst wielobarwny 9 pt)';
 const DEFAULT_PROFILES = [
   { id: 'a5', name: 'Ulotka A5 · offset, papier powlekany', rules: { ...BASE, w: 148, h: 210, bleed: 3, safe: 4 } },
@@ -300,17 +310,23 @@ const DEFAULT_PROFILES = [
   { id: 'a4', name: 'Ulotka / plakat A4 · offset', rules: { ...BASE, w: 210, h: 297, bleed: 3, safe: 4 } },
   { id: 'wiz', name: 'Wizytówka 90 × 50', rules: { ...BASE, w: 90, h: 50, bleed: 2, safe: 3 } },
   { id: 'b2', name: 'Plakat B2 · druk cyfrowy', rules: { ...BASE, w: 500, h: 700, bleed: 3, safe: 5, dpiMin: 120, dpiTarget: 175, minLine: 0.25, minLineWarn: 0.25, minText: 6, minTextWarn: 8 } },
-  { id: 'rollup', name: 'Roll-up 85 × 200 cm', rules: { ...BASE, w: 850, h: 2050, bleed: 0, safe: 20, dpiMin: 72, dpiTarget: 120, dpiMax: 200, tac: 280, minLine: 0.5, minLineWarn: 0.5, minText: 14, minTextWarn: 20 }, note: 'plik 850 × 2050 mm (dół chowa się w kasecie), bez spadu, dpi 72/120 wg Printsmarket' }
+  { id: 'banner', name: 'Baner PVC frontlit (np. 300 × 100 cm)', group: 'wf', rules: { ...BASE, w: 3000, h: 1000, bleed: 0, safe: 50, dpiMin: 50, dpiTarget: 72, dpiMax: 200, tac: 280, minLine: 1, minLineWarn: 2, minText: 24, minTextWarn: 36 }, note: WF },
+  { id: 'mesh', name: 'Siatka mesh (np. 300 × 200 cm)', group: 'wf', rules: { ...BASE, w: 3000, h: 2000, bleed: 0, safe: 50, dpiMin: 40, dpiTarget: 72, dpiMax: 150, tac: 260, minLine: 2, minLineWarn: 4, minText: 36, minTextWarn: 60 }, note: WF },
+  { id: 'sticker', name: 'Naklejka / folia wycinana 100 × 100 mm', group: 'wf', rules: { ...BASE, w: 100, h: 100, bleed: 2, safe: 3, dpiTarget: 300, tac: 280, dieRequired: true }, note: WF },
+  { id: 'owv', name: 'Folia na witrynę OWV (np. 100 × 150 cm)', group: 'wf', rules: { ...BASE, w: 1000, h: 1500, bleed: 10, safe: 20, dpiMin: 72, dpiTarget: 100, dpiMax: 200, tac: 260, minLine: 1, minLineWarn: 2, minText: 24, minTextWarn: 36 }, note: WF },
+  { id: 'backlit', name: 'Backlit do kasetonu (np. 70 × 100 cm)', group: 'wf', rules: { ...BASE, w: 700, h: 1000, bleed: 5, safe: 20, dpiMin: 100, dpiTarget: 150, dpiMax: 300, tac: 300, minLine: 0.5, minLineWarn: 1, minText: 12, minTextWarn: 18 }, note: WF },
+  { id: 'rollup', name: 'Roll-up 85 × 200 cm', group: 'wf', rules: { ...BASE, w: 850, h: 2050, bleed: 0, safe: 20, dpiMin: 72, dpiTarget: 120, dpiMax: 200, tac: 280, minLine: 0.5, minLineWarn: 0.5, minText: 14, minTextWarn: 20 }, note: 'plik 850 × 2050 mm (dół chowa się w kasecie), bez spadu, dpi 72/120 wg Printsmarket' }
 ].map(p => ({ ...p, version: 2, updated: '22.11.2026', note: p.note || V2, history: [{ version: 1, note: 'wartości początkowe' }] }));
 const RULE_KEYS = ['w', 'h', 'bleed', 'safe', 'dpiMin', 'dpiTarget', 'dpiMax', 'tac', 'minLine', 'minLineWarn', 'minText', 'minTextWarn', 'minTextMulti'];
-const BOOL_KEYS = ['cmykOnly', 'allowSpot', 'fontsEmbedded'];
-const SCHEMA = 2;
+const BOOL_KEYS = ['cmykOnly', 'allowSpot', 'fontsEmbedded', 'dieRequired'];
+const SCHEMA = 3;
 let profiles = store.get('profiles', null);
 if (!profiles || store.get('schema', 1) < SCHEMA) {
   // upgrade: untouched profiles get the new defaults, profiles edited by the user keep their values and gain new rule fields
   const fresh = structuredClone(DEFAULT_PROFILES);
-  (profiles || []).filter(o => o.version > 1).forEach(o => {
+  (profiles || []).forEach(o => {
     const i = fresh.findIndex(f => f.id === o.id);
+    if (i >= 0 && o.version <= fresh[i].version) return;   // untouched default → take the new one
     o.rules = { ...(i >= 0 ? fresh[i].rules : BASE), ...o.rules };
     if (i >= 0) fresh[i] = o; else fresh.push(o);
   });
@@ -321,7 +337,8 @@ const prof = () => profiles.find(p => p.id === profileId) || profiles[0];
 
 function fillProfileForm() {
   const sel = $('#profSel');
-  sel.innerHTML = profiles.map(p => `<option value="${p.id}">${esc(p.name)} · v${p.version}</option>`).join('');
+  const opt = p => `<option value="${p.id}">${esc(p.name)} · v${p.version}</option>`;
+  sel.innerHTML = `<optgroup label="Druk offsetowy i cyfrowy">${profiles.filter(p => p.group !== 'wf').map(opt).join('')}</optgroup><optgroup label="Wielki format">${profiles.filter(p => p.group === 'wf').map(opt).join('')}</optgroup>`;
   sel.value = prof().id;
   const r = prof().rules;
   RULE_KEYS.forEach(k => $('#r_' + k).value = r[k]);
@@ -395,26 +412,27 @@ const mul = (m, n) => [m[0] * n[0] + m[1] * n[2], m[0] * n[1] + m[1] * n[3], m[2
 const scaleOf = m => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
 const tp = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 
-function interpret(bytes, res, ctm0, P, depth) {
+function interpret(bytes, res, ctm0, P, depth, FX) {
   if (!bytes || depth > 8) return;
   const n = bytes.length; let i = 0;
   let ops = [];           // operand stack
   const nest = [];        // array / dict nesting
   const push = v => (nest.length ? nest[nest.length - 1].push(v) : ops.push(v));
-  let gs = { ctm: ctm0.slice(), lw: 1, fcs: { fam: 'gray' }, scs: { fam: 'gray' }, fv: [0], sv: [0], opF: false, opS: false };
+  let gs = { ctm: ctm0.slice(), lw: 1, fcs: { fam: 'gray' }, scs: { fam: 'gray' }, fv: [0], sv: [0], opF: false, opS: false, opm: 0, fcsName: null };
+  let curStart = 0, opStart = 0, opEnd = 0, pathStart = -1;
   const gstack = [];
   let tm = [1, 0, 0, 1, 0, 0], tlm = tm, fsize = 0, font = null;
   const str = (a, b) => { let s = ''; for (let k = a; k < b; k++) s += String.fromCharCode(bytes[k]); return s };
 
   const colorUse = (cs, vals, kind) => {
-    if (cs.fam === 'rgb' && vals.length >= 3) P.rgbVec++;
-    else if (cs.fam === 'cmyk' && vals.length >= 4) { const t = (vals[0] + vals[1] + vals[2] + vals[3]) * 100; if (t > P.vecTac) P.vecTac = t; P.cmykVec++ }
-    else if (cs.fam === 'spot') cs.spots.forEach(s => P.spots.add(s));
-    else if (cs.fam === 'lab') P.labVec++;
+    if (cs.fam === 'spot') cs.spots.forEach(s => P.spots.add(s));   // ink use is counted when something is painted
   };
   // a filled/stroked object or text was painted with colour space cs, values v, overprint flag op
   const isWhite = (cs, v) => cs.fam === 'cmyk' ? v.length >= 4 && v.every(x => x <= 0.001) : cs.fam === 'gray' ? v.length >= 1 && v[0] >= 0.999 : cs.fam === 'rgb' ? v.length >= 3 && v.every(x => x >= 0.999) : false;
   const paint = (cs, v, op) => {
+    if (cs.fam === 'rgb') P.rgbVec++;
+    else if (cs.fam === 'lab') P.labVec++;
+    else if (cs.fam === 'cmyk' && v.length >= 4) { const t = (v[0] + v[1] + v[2] + v[3]) * 100; if (t > P.vecTac) P.vecTac = t; P.cmykVec++ }
     if (op && isWhite(cs, v)) P.whiteOP++;
     if (cs.fam === 'spot') cs.spots.filter(n => DIE_RE.test(n)).forEach(n => { const d = P.die.get(n) || { name: n, uses: 0, knockout: 0 }; d.uses++; if (!op) d.knockout++; P.die.set(n, d) });
   };
@@ -429,9 +447,51 @@ function interpret(bytes, res, ctm0, P, depth) {
       if (eff < 12 && !gs.opF) P.textKO++;
     } else if (cs.fam === 'rgb' && v.length >= 3) {
       const mx = Math.max(...v.slice(0, 3)), mn = Math.min(...v.slice(0, 3));
-      if (mx <= 0.2) { P.textRgbBlack.n++; P.textRgbBlack.min = Math.min(P.textRgbBlack.min, eff) }
+      if (mx <= 0.2 && mx - mn <= 0.06) { P.textRgbBlack.n++; P.textRgbBlack.min = Math.min(P.textRgbBlack.min, eff) }
       else if (mx - mn > 0.05 && eff < P.multiMin) P.multiMin = eff;
     }
+  };
+  // ---- fixer (only when FX is passed): splice edits into this content stream
+  const colourOp = () => {
+    const v = gs.fv.map(x => +(+x).toFixed(4)).join(' ');
+    if (gs.fcsName) return `/${gs.fcsName} cs ${v} scn`;
+    return gs.fcs.fam === 'cmyk' ? `${v} k` : gs.fcs.fam === 'rgb' ? `${v} rg` : `${v} g`;
+  };
+  const isBlackText = () => {
+    const cs = gs.fcs, v = gs.fv;
+    if (cs.fam === 'cmyk' && v.length >= 4) return v[3] >= 0.85 && (v[0] + v[1] + v[2] > 0.05 || !gs.opF);
+    if (cs.fam === 'gray' && v.length) return v[0] <= 0.05 && !gs.opF;
+    if (cs.fam === 'rgb' && v.length >= 3) { const mx = Math.max(...v.slice(0, 3)), mn = Math.min(...v.slice(0, 3)); return mx <= 0.2 && mx - mn <= 0.06 }
+    return false;
+  };
+  const fixText = () => {
+    if (!FX) return;
+    if (FX.opts.whiteop && gs.opF && isWhite(gs.fcs, gs.fv)) {
+      FX.ins(opStart, `/${FX.gs({ op: false })} gs `); FX.ins(opEnd, ` /${FX.gs({ op: gs.opF })} gs`); FX.count.white++; return;
+    }
+    if (FX.opts.blacktext && isBlackText()) {
+      FX.ins(opStart, `0 0 0 1 k /${FX.gs({ op: true, OPM: 1 })} gs `);
+      FX.ins(opEnd, ` /${FX.gs({ op: gs.opF, OPM: gs.opm })} gs ${colourOp()}`);
+      FX.count.text++;
+    }
+  };
+  const isDie = cs => cs.fam === 'spot' && cs.spots.some(n => DIE_RE.test(n));
+  const fixDie = (fill, stroke) => {
+    if (!FX || !FX.opts.dieop) return false;
+    const df = fill && isDie(gs.fcs) && !gs.opF, ds = stroke && isDie(gs.scs) && !gs.opS;
+    if (!df && !ds) return false;
+    FX.ins(pathStart >= 0 ? pathStart : opStart, `/${FX.gs({ op: true, OP: true })} gs `);
+    FX.ins(opEnd, ` /${FX.gs({ op: gs.opF, OP: gs.opS })} gs`);
+    FX.count.die++; return true;
+  };
+  const fixWhite = (fill, stroke) => {
+    if (fixDie(fill, stroke)) return;
+    if (!FX || !FX.opts.whiteop) return;
+    const wf = fill && gs.opF && isWhite(gs.fcs, gs.fv), ws = stroke && gs.opS && isWhite(gs.scs, gs.sv);
+    if (!wf && !ws) return;
+    FX.ins(pathStart >= 0 ? pathStart : opStart, `/${FX.gs({ op: false, OP: false })} gs `);
+    FX.ins(opEnd, ` /${FX.gs({ op: gs.opF, OP: gs.opS })} gs`);
+    FX.count.white++;
   };
   const op = o => {
     const a = ops;
@@ -440,7 +500,9 @@ function interpret(bytes, res, ctm0, P, depth) {
       case 'Q': if (gstack.length) gs = gstack.pop(); break;
       case 'cm': if (a.length >= 6) gs.ctm = mul(a.slice(-6), gs.ctm); break;
       case 'w': gs.lw = a[a.length - 1]; break;
-      case 'f': case 'F': case 'f*': paint(gs.fcs, gs.fv, gs.opF); break;
+      case 'm': case 'l': case 'c': case 'v': case 'y': case 'h': case 're': if (pathStart < 0) pathStart = opStart; break;
+      case 'n': pathStart = -1; break;
+      case 'f': case 'F': case 'f*': paint(gs.fcs, gs.fv, gs.opF); fixWhite(true, false); pathStart = -1; break;
       case 'S': case 's': case 'B': case 'b': case 'B*': case 'b*': {
         const eff = gs.lw * scaleOf(gs.ctm);
         P.strokes++;
@@ -448,15 +510,16 @@ function interpret(bytes, res, ctm0, P, depth) {
         if (!dieStroke && eff < P.minLine) P.minLine = eff;
         paint(gs.scs, gs.sv, gs.opS);
         if (o !== 'S' && o !== 's') paint(gs.fcs, gs.fv, gs.opF);
+        fixWhite(o !== 'S' && o !== 's', true); pathStart = -1;
         break;
       }
-      case 'k': gs.fcs = { fam: 'cmyk' }; gs.fv = a.slice(-4); colorUse(gs.fcs, gs.fv); break;
+      case 'k': gs.fcsName = null; gs.fcs = { fam: 'cmyk' }; gs.fv = a.slice(-4); colorUse(gs.fcs, gs.fv); break;
       case 'K': gs.scs = { fam: 'cmyk' }; gs.sv = a.slice(-4); colorUse(gs.scs, gs.sv); break;
-      case 'rg': gs.fcs = { fam: 'rgb' }; gs.fv = a.slice(-3); colorUse(gs.fcs, gs.fv); break;
+      case 'rg': gs.fcsName = null; gs.fcs = { fam: 'rgb' }; gs.fv = a.slice(-3); colorUse(gs.fcs, gs.fv); break;
       case 'RG': gs.scs = { fam: 'rgb' }; gs.sv = a.slice(-3); colorUse(gs.scs, gs.sv); break;
-      case 'g': gs.fcs = { fam: 'gray' }; gs.fv = a.slice(-1); break;
+      case 'g': gs.fcsName = null; gs.fcs = { fam: 'gray' }; gs.fv = a.slice(-1); break;
       case 'G': gs.scs = { fam: 'gray' }; gs.sv = a.slice(-1); break;
-      case 'cs': gs.fcs = csInfo(PDFName.of(a[a.length - 1] || 'DeviceGray'), res); if (gs.fcs.fam === 'spot') gs.fcs.spots.forEach(s => P.spots.add(s)); break;
+      case 'cs': gs.fcsName = a[a.length - 1]; gs.fcs = csInfo(PDFName.of(a[a.length - 1] || 'DeviceGray'), res); if (gs.fcs.fam === 'spot') gs.fcs.spots.forEach(s => P.spots.add(s)); break;
       case 'CS': gs.scs = csInfo(PDFName.of(a[a.length - 1] || 'DeviceGray'), res); if (gs.scs.fam === 'spot') gs.scs.spots.forEach(s => P.spots.add(s)); break;
       case 'sc': case 'scn': gs.fv = a.filter(v => typeof v === 'number'); colorUse(gs.fcs, gs.fv); break;
       case 'SC': case 'SCN': gs.sv = a.filter(v => typeof v === 'number'); colorUse(gs.scs, gs.sv); break;
@@ -471,6 +534,7 @@ function interpret(bytes, res, ctm0, P, depth) {
           const OPs = bool(dget(g, 'OP')), opf = bool(dget(g, 'op'));
           if (OPs !== undefined) { gs.opS = OPs; gs.opF = OPs }
           if (opf !== undefined) gs.opF = opf;
+          const opm = num(dget(g, 'OPM')); if (Number.isFinite(opm)) gs.opm = opm;
           if (OPs || opf) P.overprint = true;
         }
         break;
@@ -486,6 +550,7 @@ function interpret(bytes, res, ctm0, P, depth) {
           if (gs.fcs.fam === 'rgb') P.rgbText = true;
           textColour(eff);
           paint(gs.fcs, gs.fv, gs.opF);
+          fixText();
         }
         break;
       }
@@ -513,7 +578,16 @@ function interpret(bytes, res, ctm0, P, depth) {
           const fres = dget(xo, 'Resources') || res;
           if (dget(xo, 'Group')) P.transparency = true;
           collectFonts(fres, P);
-          interpret(decodeStream(xo), fres, ctm, P, depth + 1);
+          let sub = null;
+          const xd = L(dget(res, 'XObject')), raw = xd && xd.get(PDFName.of(name));
+          if (FX && !FX.done.has(raw)) { FX.done.add(raw); sub = makeFixer(fres, FX.opts, FX.count, FX.done) }
+          const fb = decodeStream(xo);
+          interpret(fb, fres, ctm, P, depth + 1, sub);
+          if (sub && sub.edits.length && fb) {
+            const ns = ctx.flateStream(sub.apply(fb));
+            for (const [k, v] of xo.dict.entries()) { const kn = k.decodeText(); if (!['Filter', 'DecodeParms', 'Length'].includes(kn)) ns.dict.set(k, v) }
+            if (raw instanceof PDFRef) ctx.assign(raw, ns); else xd.set(PDFName.of(name), ctx.register(ns));
+          }
         }
         break;
       }
@@ -525,6 +599,7 @@ function interpret(bytes, res, ctm0, P, depth) {
     const c = bytes[i];
     if (WS.has(c)) { i++; continue }
     if (c === 37) { while (i < n && bytes[i] !== 10 && bytes[i] !== 13) i++; continue }
+    if (!ops.length && !nest.length) curStart = i;
     if (c === 40) { let d = 1; i++; while (i < n && d > 0) { const x = bytes[i]; if (x === 92) { i += 2; continue } if (x === 40) d++; else if (x === 41) d--; i++ } push('(str)'); continue }
     if (c === 60) { if (bytes[i + 1] === 60) { i += 2; nest.push([]); continue } while (i < n && bytes[i] !== 62) i++; i++; push('<hex>'); continue }
     if (c === 62) { if (bytes[i + 1] === 62) { i += 2; const d = nest.pop(); push(d || []); continue } i++; continue }
@@ -543,6 +618,7 @@ function interpret(bytes, res, ctm0, P, depth) {
       i++; while (i < n - 2) { if (WS.has(bytes[i]) && bytes[i + 1] === 69 && bytes[i + 2] === 73 && (i + 3 >= n || WS.has(bytes[i + 3]))) { i += 3; break } i++ }
       P.inlineImages++; ops = []; continue;
     }
+    opStart = curStart; opEnd = i;
     op(s);
   }
 }
@@ -595,6 +671,43 @@ async function renderPage(pdfDoc, idx, scale) {
   return { cv, vp, page };
 }
 const vpRect = (vp, b) => { const p1 = vp.convertToViewportPoint(b.x0, b.y0), p2 = vp.convertToViewportPoint(b.x1, b.y1); return { x: Math.min(p1[0], p2[0]), y: Math.min(p1[1], p2[1]), w: Math.abs(p2[0] - p1[0]), h: Math.abs(p2[1] - p1[1]) } };
+
+/* ---------- vector fixer ---------- */
+function makeFixer(res, opts, count, done) {
+  const FX = { opts, count, done, edits: [], seq: 0 };
+  FX.ins = (pos, text) => FX.edits.push({ pos, text, seq: FX.seq++ });
+  FX.gs = spec => {
+    // add (or reuse) an ExtGState with exactly these overprint settings
+    let eg = dget(res, 'ExtGState');
+    if (!eg) { eg = ctx.obj({}); res.set(PDFName.of('ExtGState'), eg) }
+    const clean = Object.fromEntries(Object.entries(spec).filter(([, v]) => v !== undefined));
+    const key = 'PCP_' + Object.entries(clean).map(([k, v]) => k + (v === true ? 1 : v === false ? 0 : v)).join('_');
+    if (!eg.get(PDFName.of(key))) eg.set(PDFName.of(key), ctx.obj({ Type: 'ExtGState', ...clean }));
+    return key;
+  };
+  FX.apply = bytes => {
+    const ed = FX.edits.slice().sort((a, b) => a.pos - b.pos || a.seq - b.seq), enc = new TextEncoder(), parts = []; let last = 0;
+    ed.forEach(e => { parts.push(bytes.subarray(last, e.pos), enc.encode(e.pos > 0 ? ' ' + e.text + ' ' : e.text + ' ')); last = e.pos });
+    parts.push(bytes.subarray(last));
+    const out = new Uint8Array(parts.reduce((s, p) => s + p.length, 0)); let o = 0; parts.forEach(p => { out.set(p, o); o += p.length });
+    return out;
+  };
+  return FX;
+}
+function newPageStats(extra) {
+  return Object.assign({
+    images: [], minLine: Infinity, minText: Infinity, strokes: 0, rgbVec: 0, cmykVec: 0, labVec: 0, vecTac: 0, rgbText: false,
+    spots: new Set(), transparency: false, overprint: false, shadings: 0, inlineImages: 0, fonts: new Map(), textOutside: [], estTac: 0, estTacMax: 0,
+    whiteOP: 0, die: new Map(), text4c: { n: 0, min: Infinity, tac: 0 }, textRgbBlack: { n: 0, min: Infinity }, multiMin: Infinity, textKO: 0
+  }, extra);
+}
+function pageContentBytes(node) {
+  const contents = L(node.get(PDFName.of('Contents')));
+  const parts = (contents instanceof PDFArray ? arr(contents) : contents ? [contents] : []).map(decodeStream).filter(Boolean);
+  const joined = new Uint8Array(parts.reduce((s, p) => s + p.length + 1, 0)); let off = 0;
+  parts.forEach(p => { joined.set(p, off); off += p.length; joined[off++] = 10 });
+  return joined;
+}
 
 /* ---------- analysis ---------- */
 async function analyze(bytes) {
@@ -760,11 +873,12 @@ function buildChecks(A, r) {
   // die / cut line
   const dies = new Map();
   A.pages.forEach(P => P.die.forEach((d, n) => { const e = dies.get(n) || { name: n, uses: 0, knockout: 0 }; e.uses += d.uses; e.knockout += d.knockout; dies.set(n, e) }));
+  if (!dies.size && r.dieRequired) add('die', 'Wykrojnik / linia cięcia', 'err', 'Brak linii cięcia – profil jej wymaga', ['Dodaj ścieżkę wektorową w kolorze dodatkowym o nazwie np. CutContour, z nadrukiem, na osobnej warstwie.']);
   if (dies.size) {
     const ko = [...dies.values()].filter(d => d.knockout);
     add('die', 'Wykrojnik / linia cięcia', ko.length ? 'warn' : 'ok',
       ko.length ? `${[...dies.keys()].join(', ')} bez nadruku – wybije białą linię w grafice` : `${[...dies.keys()].join(', ')} z nadrukiem (overprint)`,
-      [...[...dies.values()].map(d => `${d.name}: ${d.uses} ${d.uses === 1 ? 'użycie' : 'użyć'}${d.knockout ? `, ${d.knockout} bez nadruku` : ''}`), 'Linia cięcia ma być wektorem w kolorze dodatkowym, z nadrukiem, na osobnej warstwie.']);
+      [...[...dies.values()].map(d => `${d.name}: ${d.uses} ${d.uses === 1 ? 'użycie' : 'użyć'}${d.knockout ? `, ${d.knockout} bez nadruku` : ''}`), 'Linia cięcia ma być wektorem w kolorze dodatkowym, z nadrukiem, na osobnej warstwie.'], ko.length ? 'dieop' : null);
   }
 
   // TAC
@@ -798,14 +912,15 @@ function buildChecks(A, r) {
   const tRgb = A.pages.reduce((a, P) => ({ n: a.n + P.textRgbBlack.n, min: Math.min(a.min, P.textRgbBlack.min) }), { n: 0, min: Infinity });
   const multiMin = Math.min(...A.pages.map(P => P.multiMin)) * sf;
   const ko = A.pages.reduce((s, P) => s + P.textKO, 0);
-  const tItems = [], tSt = [];
-  if (t4.n) { tSt.push(t4.tac > 280 ? 'err' : 'warn'); tItems.push(`Czarny tekst z 4 farb (do ${nf(t4.tac, 0)}%, od ${nf(t4.min * sf, 1)} pt)${t4.tac > 280 ? ' – GWG: tekst z K > 85% maks. 280%' : ''}. Przy niedokładnym pasowaniu będzie rozmyty – ustaw 100K.`) }
-  if (tRgb.n) { tSt.push(r.cmykOnly ? 'warn' : 'info'); tItems.push(`Czarny tekst w RGB (${tRgb.n}×, od ${nf(tRgb.min * sf, 1)} pt) – po konwersji do CMYK zrobi się z 4 farb. Ustaw 100K.`) }
-  if (multiMin < r.minTextMulti) { tSt.push('warn'); tItems.push(`Tekst kolorowy z 2+ farb ma ${nf(multiMin, 1)} pt (min. ${r.minTextMulti} pt) – ryzyko rozmycia.`) }
-  if (ko) { tSt.push('info'); tItems.push(`Czarny tekst < 12 pt bez nadruku (${ko}×) – zalecany nadruk (overprint), żeby nie było białych prześwitów.`) }
+  const tItems = [], tSt = [], tShort = [];
+  if (t4.n) { tSt.push(t4.tac > 280 ? 'err' : 'warn'); tShort.push(`Czarny tekst z 4 farb (do ${nf(t4.tac, 0)}%)`); tItems.push(`Czarny tekst z 4 farb (do ${nf(t4.tac, 0)}%, od ${nf(t4.min * sf, 1)} pt)${t4.tac > 280 ? ' – GWG: tekst z K > 85% maks. 280%' : ''}. Przy niedokładnym pasowaniu będzie rozmyty – ustaw 100K.`) }
+  if (tRgb.n) { tSt.push(r.cmykOnly ? 'warn' : 'info'); tShort.push(`Czarny tekst w RGB (${tRgb.n}×)`); tItems.push(`Czarny tekst w RGB (${tRgb.n}×, od ${nf(tRgb.min * sf, 1)} pt) – po konwersji do CMYK zrobi się z 4 farb. Ustaw 100K.`) }
+  if (multiMin < r.minTextMulti) { tSt.push('warn'); tShort.push(`Tekst z 2+ farb ${nf(multiMin, 1)} pt (min. ${nf(r.minTextMulti)} pt)`); tItems.push(`Tekst kolorowy z 2+ farb ma ${nf(multiMin, 1)} pt (min. ${r.minTextMulti} pt) – ryzyko rozmycia.`) }
+  if (ko) { tSt.push('info'); tShort.push(`Czarny tekst < 12 pt bez nadruku (${ko}×)`); tItems.push(`Czarny tekst < 12 pt bez nadruku (${ko}×) – zalecany nadruk (overprint), żeby nie było białych prześwitów.`) }
   const anyText = Number.isFinite(minText);
   add('textcolor', 'Kolor tekstu', !anyText ? 'info' : tSt.length ? worst(...tSt) : 'ok',
-    !anyText ? 'Brak tekstu' : tItems.length ? tItems[0].split(' – ')[0].split('. ')[0] : 'Czarny tekst 100K, kolorowy tekst czytelny', tItems.length > 1 || tItems.length === 1 ? tItems : []);
+    !anyText ? 'Brak tekstu' : tShort.length ? tShort.join(' · ') : 'Czarny tekst 100K, kolorowy tekst czytelny', tItems,
+    t4.n || tRgb.n || ko ? 'blacktext' : null);
 
   // safe zone
   const outside = [];
@@ -822,7 +937,8 @@ function buildChecks(A, r) {
   const tr = A.pages.some(P => P.transparency), ov = A.pages.some(P => P.overprint), wop = A.pages.reduce((s, P) => s + P.whiteOP, 0);
   add('transp', 'Przezroczystości i nadruk', wop ? 'err' : tr || ov ? 'info' : 'ok',
     wop ? `${plural(wop, 'biały obiekt', 'białe obiekty', 'białych obiektów')} z nadrukiem – na druku ${wop === 1 ? 'zniknie' : 'znikną'}` : [tr && 'Zawiera przezroczystości', ov && 'Używa nadruku (overprint)'].filter(Boolean).join(' · ') || 'Brak',
-    [...(wop ? ['Biały kolor z nadrukiem nie drukuje się wcale. Wyłącz nadruk dla białych elementów.'] : []), ...(tr ? ['Spłaszczenie przy poprawce automatycznej usuwa ryzyko przy starszych RIP-ach.'] : [])]);
+    [...(wop ? ['Biały kolor z nadrukiem nie drukuje się wcale. Wyłącz nadruk dla białych elementów.'] : []), ...(tr ? ['Spłaszczenie przy poprawce automatycznej usuwa ryzyko przy starszych RIP-ach.'] : [])],
+    wop ? 'whiteop' : null);
 
   // PDF/X & output intent
   const oi = (A.outputIntents || []).find(o => o.s === 'GTS_PDFX') || (A.outputIntents || [])[0];
@@ -841,6 +957,33 @@ async function buildFixed(A, src, r, opts, onProgress) {
   out.setTitle(src.name.replace(/\.[^.]+$/, '') + ' – do druku');
   const bleedPt = r.bleed * MM;
 
+  if (opts.mode === 'vector') {
+    const doc = await PDFDocument.load(src.pdfBytes, { ignoreEncryption: true, updateMetadata: false });
+    ctx = doc.context;
+    const count = { text: 0, white: 0, die: 0 }, done = new Set(), notes = [];
+    doc.getPages().forEach((pg, i) => {
+      const node = pg.node;
+      if (opts.boxes) {
+        const sf = A.sf || 1, g = pageGeometry(A.pages[i], r, sf), b = r.bleed * MM / sf;
+        pg.setTrimBox(g.trim.x0, g.trim.y0, g.trim.x1 - g.trim.x0, g.trim.y1 - g.trim.y0);
+        pg.setBleedBox(g.trim.x0 - b, g.trim.y0 - b, g.trim.x1 - g.trim.x0 + 2 * b, g.trim.y1 - g.trim.y0 + 2 * b);
+      }
+      if (!opts.blacktext && !opts.whiteop && !opts.dieop) return;
+      let res = inherited(node, 'Resources');
+      if (!res) { res = ctx.obj({}); node.set(PDFName.of('Resources'), res) }
+      else if (!node.get(PDFName.of('Resources'))) { res = res.clone(ctx); node.set(PDFName.of('Resources'), res) }   // don't touch shared inherited resources
+      const FX = makeFixer(res, opts, count, done);
+      const bytes = pageContentBytes(node);
+      interpret(bytes, res, [1, 0, 0, 1, 0, 0], newPageStats(), 0, FX);
+      if (FX.edits.length) node.set(PDFName.of('Contents'), ctx.register(ctx.flateStream(FX.apply(bytes))));
+    });
+    if (opts.boxes) notes.push('Ustawiono TrimBox i BleedBox.');
+    if (opts.blacktext) notes.push(count.text ? `Czarny tekst ustawiony na 100K z nadrukiem (${plural(count.text, 'fragment', 'fragmenty', 'fragmentów')}).` : 'Nie znaleziono czarnego tekstu do zmiany.');
+    if (opts.whiteop) notes.push(count.white ? `Wyłączono nadruk na białych elementach (${count.white}).` : 'Nie znaleziono białych elementów z nadrukiem.');
+    if (opts.dieop) notes.push(count.die ? `Linia cięcia ustawiona z nadrukiem (${count.die}).` : 'Linia cięcia miała już nadruk.');
+    notes.push('Treść pozostaje wektorowa: tekst, czcionki i grafika bez zmian poza kolorem i nadrukiem.');
+    return { bytes: await doc.save(), notes };
+  }
   if (opts.mode === 'boxes') {
     const doc = await PDFDocument.load(src.pdfBytes, { ignoreEncryption: true, updateMetadata: false });
     doc.getPages().forEach((pg, i) => {
@@ -945,28 +1088,93 @@ async function imageToPdf(bytes, type, r) {
 }
 
 /* ---------- sample job (generated in the browser) ---------- */
-async function makeSample() {
-  const { rgb, cmyk, StandardFonts } = PDFLib;
-  const doc = await PDFDocument.create();
-  doc.setTitle('Ulotka wiosenna – przyklad');
-  const W = 148 * MM, H = 210 * MM, p = doc.addPage([W, H]);
-  p.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(0.96, 0.45, 0.22) });
-  p.drawRectangle({ x: 0, y: H * 0.58, width: W, height: H * 0.42, color: cmyk(1, 0.8, 0.8, 1) });
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold), reg = await doc.embedFont(StandardFonts.Helvetica);
-  p.drawText('WIOSNA', { x: 12 * MM, y: H - 38 * MM, size: 58, font: bold, color: rgb(1, 1, 1) });
-  p.drawText('w Twojej drukarni', { x: 12 * MM, y: H - 50 * MM, size: 20, font: reg, color: rgb(1, 0.85, 0.3) });
-  p.drawText('Rabat 20% na ulotki', { x: 2 * MM, y: 70 * MM, size: 16, font: bold, color: rgb(0.1, 0.1, 0.1) });
-  p.drawText('Promocja do 31.05.2027, regulamin na stronie www', { x: 12 * MM, y: 8 * MM, size: 4.5, font: reg, color: rgb(0.2, 0.2, 0.2) });
-  p.drawLine({ start: { x: 12 * MM, y: 62 * MM }, end: { x: 136 * MM, y: 62 * MM }, thickness: 0.1, color: cmyk(0, 0, 0, 1) });
-  // low-resolution photo placeholder
-  const c = document.createElement('canvas'); c.width = 160; c.height = 100; const g = c.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 160, 100); gr.addColorStop(0, '#3fa34d'); gr.addColorStop(1, '#f2d16b'); g.fillStyle = gr; g.fillRect(0, 0, 160, 100);
-  g.fillStyle = '#fff'; g.beginPath(); g.arc(120, 30, 14, 0, 7); g.fill(); g.fillStyle = '#2d6a35'; g.fillRect(0, 70, 160, 30);
-  const png = await (await fetch(c.toDataURL('image/png'))).arrayBuffer();
-  const im = await doc.embedPng(png);
-  p.drawImage(im, { x: 12 * MM, y: 18 * MM, width: 70 * MM, height: 43.75 * MM });
-  return new Uint8Array(await doc.save());
+// add a raw content stream (overprint, spot colours) on top of what pdf-lib drew
+function addRaw(doc, page, content, resExtra = {}) {
+  const c = doc.context, res = page.node.Resources();
+  for (const [cat, entries] of Object.entries(resExtra)) {
+    let d = res.lookup(PDFName.of(cat)); if (!d) { d = c.obj({}); res.set(PDFName.of(cat), d) }
+    for (const [k, v] of Object.entries(entries)) d.set(PDFName.of(k), v);
+  }
+  page.node.addContentStream(c.register(c.stream(content)));
 }
+const cutContour = doc => { const c = doc.context; return c.obj([PDFName.of('Separation'), PDFName.of('CutContour'), PDFName.of('DeviceCMYK'), c.register(c.obj({ FunctionType: 2, Domain: [0, 1], C0: [0, 0, 0, 0], C1: [0, 1, 0, 0], N: 1 }))]) };
+async function photo(doc, w, h, kind = 'jpg', palette = ['#2f7f9e', '#f2c14e', '#e2603b']) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, w, h); palette.forEach((col, i) => gr.addColorStop(i / (palette.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(w * 0.75, h * 0.3, Math.min(w, h) * 0.14, 0, 7); g.fill();
+  g.fillStyle = 'rgba(20,40,30,.55)'; g.beginPath(); g.moveTo(0, h); g.lineTo(w * 0.35, h * 0.45); g.lineTo(w * 0.6, h * 0.75); g.lineTo(w * 0.8, h * 0.55); g.lineTo(w, h); g.fill();
+  const buf = await (await fetch(c.toDataURL(kind === 'png' ? 'image/png' : 'image/jpeg', 0.85))).arrayBuffer();
+  return kind === 'png' ? doc.embedPng(buf) : doc.embedJpg(buf);
+}
+const SAMPLES = {
+  a5: { profile: 'a5', file: 'ulotka-wiosna-A5_przyklad.pdf', async make() {
+    const { rgb, cmyk, StandardFonts } = PDFLib;
+    const doc = await PDFDocument.create(); doc.setTitle('Ulotka wiosenna – przyklad');
+    const W = 148 * MM, H = 210 * MM, p = doc.addPage([W, H]);
+    p.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(0.96, 0.45, 0.22) });
+    p.drawRectangle({ x: 0, y: H * 0.58, width: W, height: H * 0.42, color: cmyk(1, 0.8, 0.8, 1) });
+    const bold = await doc.embedFont(StandardFonts.HelveticaBold), reg = await doc.embedFont(StandardFonts.Helvetica);
+    p.drawText('WIOSNA', { x: 12 * MM, y: H - 38 * MM, size: 58, font: bold, color: rgb(1, 1, 1) });
+    p.drawText('w Twojej drukarni', { x: 12 * MM, y: H - 50 * MM, size: 20, font: reg, color: rgb(1, 0.85, 0.3) });
+    p.drawText('Rabat 20% na ulotki', { x: 2 * MM, y: 70 * MM, size: 16, font: bold, color: rgb(0.1, 0.1, 0.1) });
+    p.drawText('Promocja do 31.05.2027, regulamin na stronie www', { x: 12 * MM, y: 8 * MM, size: 4.5, font: reg, color: rgb(0.2, 0.2, 0.2) });
+    p.drawLine({ start: { x: 12 * MM, y: 62 * MM }, end: { x: 136 * MM, y: 62 * MM }, thickness: 0.1, color: cmyk(0, 0, 0, 1) });
+    p.drawImage(await photo(doc, 160, 100, 'png', ['#3fa34d', '#f2d16b']), { x: 12 * MM, y: 18 * MM, width: 70 * MM, height: 43.75 * MM });
+    return doc;
+  } },
+  wiz: { profile: 'wiz', file: 'wizytowka-90x50_poprawna.pdf', async make() {
+    const { cmyk } = PDFLib;
+    const doc = await PDFDocument.create(); doc.setTitle('Wizytowka – plik poprawny');
+    const B = 2 * MM, W = 90 * MM + 2 * B, H = 50 * MM + 2 * B, p = doc.addPage([W, H]);
+    p.drawRectangle({ x: 0, y: 0, width: W, height: H, color: cmyk(0.85, 0.35, 0, 0.15) });
+    p.drawRectangle({ x: 0, y: 0, width: W * 0.38, height: H, color: cmyk(0, 0, 0, 0.92) });
+    p.drawCircle({ x: B + 17 * MM, y: H / 2, size: 9 * MM, color: cmyk(0, 0.15, 1, 0) });
+    p.drawSvgPath('M0 0 L14 0 L14 4 L4 4 L4 10 L12 10 L12 14 L4 14 L4 20 L14 20 L14 24 L0 24 Z', { x: B + 13 * MM, y: H / 2 + 4.2 * MM, scale: 0.35 * MM, color: cmyk(0, 0, 0, 1) });
+    p.drawLine({ start: { x: B + 40 * MM, y: B + 14 * MM }, end: { x: B + 84 * MM, y: B + 14 * MM }, thickness: 0.5, color: cmyk(0, 0, 0, 0) });
+    p.setTrimBox(B, B, 90 * MM, 50 * MM); p.setBleedBox(0, 0, W, H);
+    return doc;
+  } },
+  sticker: { profile: 'sticker', file: 'naklejka-100x100_wykrojnik.pdf', async make() {
+    const { cmyk, StandardFonts } = PDFLib;
+    const doc = await PDFDocument.create(); doc.setTitle('Naklejka z wykrojnikiem');
+    const B = 2 * MM, W = 100 * MM + 2 * B, p = doc.addPage([W, W]);
+    p.drawRectangle({ x: 0, y: 0, width: W, height: W, color: cmyk(0, 0.7, 0.9, 0) });
+    p.drawCircle({ x: W / 2, y: W / 2, size: 38 * MM, color: cmyk(0, 0, 0, 0) });
+    const f = await doc.embedFont(StandardFonts.HelveticaBold);
+    p.drawText('ECO', { x: W / 2 - 22 * MM, y: W / 2 - 5 * MM, size: 54, font: f, color: cmyk(0.75, 0.68, 0.67, 0.9) });
+    // die line: circle 46 mm radius in CutContour, stroked WITHOUT overprint
+    const r = 46 * MM, k = 0.5523 * r, cx = W / 2, cy = W / 2;
+    addRaw(doc, p, `/CS0 CS 1 SCN 0.25 w ${cx + r} ${cy} m ${cx + r} ${cy + k} ${cx + k} ${cy + r} ${cx} ${cy + r} c ${cx - k} ${cy + r} ${cx - r} ${cy + k} ${cx - r} ${cy} c ${cx - r} ${cy - k} ${cx - k} ${cy - r} ${cx} ${cy - r} c ${cx + k} ${cy - r} ${cx + r} ${cy - k} ${cx + r} ${cy} c S`, { ColorSpace: { CS0: cutContour(doc) } });
+    p.setTrimBox(B, B, 100 * MM, 100 * MM); p.setBleedBox(0, 0, W, W);
+    return doc;
+  } },
+  banner: { profile: 'banner', file: 'baner-300x100cm_skala-1-10.pdf', async make() {
+    const { rgb, cmyk, StandardFonts } = PDFLib;
+    const doc = await PDFDocument.create(); doc.setTitle('Baner 300x100 cm w skali 1:10');
+    const W = 300 * MM, H = 100 * MM, p = doc.addPage([W, H]);
+    p.drawImage(await photo(doc, 1800, 600), { x: 0, y: 0, width: W, height: H });
+    const f = await doc.embedFont(StandardFonts.HelveticaBold);
+    p.drawText('OTWARCIE SALONU', { x: 20 * MM, y: 55 * MM, size: 52, font: f, color: cmyk(0.6, 0.5, 0.5, 1) });
+    p.drawText('ul. Kwiatowa 1', { x: 20 * MM, y: 38 * MM, size: 20, font: f, color: rgb(0.08, 0.08, 0.08) });
+    p.drawText('tel. 000 000 000', { x: 1.5 * MM, y: 3 * MM, size: 12, font: f, color: cmyk(0, 0, 0, 1) });
+    // white bar set to overprint – disappears on press
+    addRaw(doc, p, '/GSop gs 0 0 0 0 k ' + `${20 * MM} ${30 * MM} ${150 * MM} ${1.5 * MM} re f`, { ExtGState: { GSop: doc.context.obj({ Type: 'ExtGState', op: true, OP: true }) } });
+    return doc;
+  } },
+  rollup: { profile: 'rollup', file: 'rollup-85x205cm.pdf', async make() {
+    const { rgb, cmyk, StandardFonts } = PDFLib;
+    const doc = await PDFDocument.create(); doc.setTitle('Roll-up 85x205 cm');
+    const W = 850 * MM, H = 2050 * MM, p = doc.addPage([W, H]);
+    p.drawRectangle({ x: 0, y: 0, width: W, height: H, color: cmyk(0.05, 0, 0.1, 0) });
+    p.drawImage(await photo(doc, 1400, 1000, 'jpg', ['#7b2d8b', '#e94f64', '#f6c445']), { x: 0, y: 900 * MM, width: W, height: 607 * MM });
+    const f = await doc.embedFont(StandardFonts.HelveticaBold);
+    p.drawText('TARGI 2027', { x: 70 * MM, y: 1700 * MM, size: 260, font: f, color: cmyk(0.9, 0.7, 0, 0) });
+    p.drawText('Stoisko B12', { x: 70 * MM, y: 700 * MM, size: 160, font: f, color: rgb(0.05, 0.05, 0.05) });
+    p.drawText('www.przyklad.pl', { x: 70 * MM, y: 40 * MM, size: 90, font: f, color: cmyk(0, 0, 0, 1) });
+    return doc;
+  } }
+};
+async function makeSample(key = 'a5') { return new Uint8Array(await (await SAMPLES[key].make()).save()) }
 
 /* ---------- app state ---------- */
 const S = { src: null, A: null, checks: null, fixed: null, fixedA: null, fixedChecks: null, page: 0, view: 'preview', approval: null, fixOpts: null, busy: false };
@@ -1031,7 +1239,7 @@ function renderReport() {
   const verdictTxt = c.err ? (S.fixedChecks ? 'Po poprawkach nadal są błędy' : 'Plik wymaga poprawek') : c.warn ? 'Do druku, z uwagami' : 'Gotowy do druku';
   const before = Object.fromEntries(S.checks.map(k => [k.id, k]));
   const rasterBlock = S.A.sf !== 1 ? 'Plik jest w skali 1:10 – spłaszczenie wymaga pełnego formatu, popraw plik w projekcie.' : S.checks.some(k => k.id === 'die') ? 'Plik ma linię cięcia (wykrojnik) – spłaszczenie wtopiłoby ją w grafikę, więc poprawki automatyczne są wyłączone.' : '';
-  const fixable = S.checks.filter(k => k.fix && (!rasterBlock || k.fix === 'boxes'));
+  const fixable = S.checks.filter(k => k.fix && (!rasterBlock || ['boxes', 'blacktext', 'whiteop', 'dieop'].includes(k.fix)));
   const fixKinds = new Set(fixable.map(k => k.fix));
 
   let html = `<div class="verdict">
@@ -1045,20 +1253,26 @@ function renderReport() {
     <p class="hint">Profil: ${esc(p.name)} · <span class="ver">v${p.version}</span> · ${nf(r.w)} × ${nf(r.h)} mm + ${nf(r.bleed)} mm spadu</p>
   </div>`;
 
-  if (!S.fixed && rasterBlock && S.checks.some(k => k.fix && k.fix !== 'boxes')) html += `<div class="fixbox"><p class="warnnote">${esc(rasterBlock)}</p></div>`;
+  const VEC = ['boxes', 'blacktext', 'whiteop', 'dieop'];
+  const vecKinds = [...fixKinds].filter(k => VEC.includes(k)), rasKinds = [...fixKinds].filter(k => !VEC.includes(k));
+  if (!S.fixed && rasterBlock && S.checks.some(k => k.fix && !VEC.includes(k.fix))) html += `<div class="fixbox"><p class="warnnote">${esc(rasterBlock)}</p></div>`;
   if (!S.fixed && fixable.length && !S.A.error && !S.A.encrypted) {
-    const onlyBoxes = fixKinds.size === 1 && fixKinds.has('boxes');
     html += `<div class="fixbox">
       <div class="sec-h" style="padding:0;border:0">Poprawki automatyczne</div>
-      ${onlyBoxes ? `<p class="hint">Spad jest w pliku, brakuje tylko opisu linii cięcia. Poprawka nie zmienia treści.</p>` : `
-      ${fixKinds.has('bleed') ? `<label class="chk"><input type="checkbox" id="fx_bleed" checked> Dodaj ${nf(r.bleed)} mm spadu (lustrzane odbicie krawędzi)</label>` : ''}
-      ${fixKinds.has('cmyk') ? `<label class="chk"><input type="checkbox" id="fx_cmyk" checked> Konwertuj do CMYK z limitem farby ${r.tac}%</label>` : ''}
-      ${fixKinds.has('scale') ? `<label class="chk"><input type="checkbox" id="fx_scale" checked> Przeskaluj do ${nf(r.w)} × ${nf(r.h)} mm</label>` : ''}
-      ${fixKinds.has('flatten') ? `<label class="chk"><input type="checkbox" checked disabled> Zamień tekst na obraz (brak osadzonych czcionek)</label>` : ''}
+      ${vecKinds.length ? `<p class="hint" style="margin-top:-4px">Bezstratne – tekst i grafika zostają wektorowe:</p>
+      ${fixKinds.has('boxes') ? `<label class="chk"><input type="checkbox" id="fx_boxes" checked> Ustaw linie cięcia (TrimBox / BleedBox)</label>` : ''}
+      ${fixKinds.has('blacktext') ? `<label class="chk"><input type="checkbox" id="fx_blacktext" checked> Czarny tekst → 100K z nadrukiem</label>` : ''}
+      ${fixKinds.has('whiteop') ? `<label class="chk"><input type="checkbox" id="fx_whiteop" checked> Wyłącz nadruk na białych elementach</label>` : ''}
+      ${fixKinds.has('dieop') ? `<label class="chk"><input type="checkbox" id="fx_dieop" checked> Ustaw nadruk na linii cięcia</label>` : ''}` : ''}
+      ${rasKinds.length ? `<p class="hint">${vecKinds.length ? 'Ze spłaszczeniem strony do obrazu CMYK (zastępuje poprawki bezstratne):' : 'Ze spłaszczeniem strony do obrazu CMYK:'}</p>
+      ${fixKinds.has('bleed') ? `<label class="chk"><input type="checkbox" class="fx_r" id="fx_bleed" ${vecKinds.length ? '' : 'checked'}> Dodaj ${nf(r.bleed)} mm spadu (lustrzane odbicie krawędzi)</label>` : ''}
+      ${fixKinds.has('cmyk') ? `<label class="chk"><input type="checkbox" class="fx_r" id="fx_cmyk" ${vecKinds.length ? '' : 'checked'}> Konwertuj do CMYK z limitem farby ${r.tac}%</label>` : ''}
+      ${fixKinds.has('scale') ? `<label class="chk"><input type="checkbox" class="fx_r" id="fx_scale" ${vecKinds.length ? '' : 'checked'}> Przeskaluj do ${nf(r.w)} × ${nf(r.h)} mm</label>` : ''}
+      ${fixKinds.has('flatten') ? `<label class="chk"><input type="checkbox" class="fx_r" id="fx_flatten" ${vecKinds.length ? '' : 'checked'}> Zamień tekst na obraz (brak osadzonych czcionek)</label>` : ''}
       <label class="f">Rozdzielczość pliku wynikowego
         <select class="sel" id="fx_dpi">${[150, 200, 300, 400].map(d => `<option value="${d}" ${d === (r.dpiMin >= 150 ? 300 : r.dpiMin >= 100 ? 200 : 150) ? 'selected' : ''}>${d} dpi</option>`).join('')}</select></label>
-      <p class="warnnote">Poprawka spłaszcza stronę do obrazu CMYK: tekst i wektory przestają być edytowalne. Konwersja barw jest uproszczona (bez profilu ICC) – przy pracach z krytycznym kolorem przygotuj plik w programie źródłowym z profilem drukarni.</p>`}
-      <button class="btn primary full" id="btnFix" type="button">${onlyBoxes ? 'Ustaw linie cięcia' : 'Przygotuj poprawiony plik'}</button>
+      <p class="warnnote">Spłaszczenie zamienia stronę w obraz CMYK: tekst i wektory przestają być edytowalne. Konwersja barw jest uproszczona (bez profilu ICC). Spad lustrzany i obniżenie nafarbienia zmieniają wygląd – pokaż wynik klientowi przed akceptacją.</p>` : ''}
+      <button class="btn primary full" id="btnFix" type="button">Przygotuj poprawiony plik</button>
     </div>`;
   }
   if (S.fixed) {
@@ -1106,14 +1320,23 @@ function renderReport() {
   $('#btnDlJson').addEventListener('click', () => saveFile(S.src.name.replace(/\.[^.]+$/, '') + '_raport.json', JSON.stringify(reportJson(), null, 2)));
 }
 
+// postflight: make sure a fix did not lose text, images or fonts
+function postflight(A, B, opts) {
+  const tally = X => ({ text: X.pages.reduce((s, P) => s + (P.textItems ? P.textItems.length : 0), 0), img: X.pages.reduce((s, P) => s + P.images.length, 0), fonts: X.fonts.length, pages: X.pages.length });
+  const a = tally(A), b = tally(B);
+  const row = `teksty ${a.text} → ${b.text}, obrazy ${a.img} → ${b.img}, czcionki ${a.fonts} → ${b.fonts}, strony ${a.pages} → ${b.pages}`;
+  if (opts.mode === 'raster') return { id: 'post', title: 'Kontrola po poprawce', status: b.pages === a.pages ? 'info' : 'err', summary: b.pages === a.pages ? 'Strony spłaszczone do obrazu – tekst nie jest już edytowalny' : 'Zmieniła się liczba stron', details: [row], wasFixed: false };
+  const same = a.text === b.text && a.img === b.img && a.fonts === b.fonts && a.pages === b.pages;
+  return { id: 'post', title: 'Kontrola po poprawce', status: same ? 'ok' : 'err', summary: same ? `Bez utraty treści: ${plural(a.text, 'tekst', 'teksty', 'tekstów')}, ${plural(a.img, 'obraz', 'obrazy', 'obrazów')}, ${plural(a.fonts, 'czcionka', 'czcionki', 'czcionek')}` : 'Poprawka zmieniła treść pliku – nie używaj go', details: [row], wasFixed: false };
+}
+
 async function runFix() {
   const r = prof().rules;
-  const kinds = new Set(S.checks.filter(k => k.fix).map(k => k.fix));
-  const onlyBoxes = kinds.size === 1 && kinds.has('boxes');
-  const opts = onlyBoxes ? { mode: 'boxes' } : {
-    mode: 'raster', dpi: parseInt($('#fx_dpi').value, 10),
-    bleed: !!$('#fx_bleed')?.checked, cmyk: kinds.has('cmyk') ? !!$('#fx_cmyk')?.checked : true, scale: !!$('#fx_scale')?.checked
-  };
+  const on = id => !!$('#' + id)?.checked;
+  const raster = [...document.querySelectorAll('.fx_r')].some(x => x.checked);
+  const opts = raster ? { mode: 'raster', dpi: parseInt($('#fx_dpi').value, 10), bleed: on('fx_bleed'), cmyk: $('#fx_cmyk') ? on('fx_cmyk') : true, scale: on('fx_scale') }
+    : { mode: 'vector', boxes: on('fx_boxes'), blacktext: on('fx_blacktext'), whiteop: on('fx_whiteop'), dieop: on('fx_dieop') };
+  if (opts.mode === 'vector' && !opts.boxes && !opts.blacktext && !opts.whiteop && !opts.dieop) { toast('Zaznacz co najmniej jedną poprawkę'); return }
   setBusy(true, 'Przygotowuję plik…');
   try {
     const res = await buildFixed(S.A, S.src, r, opts, m => { $('#busy').textContent = m });
@@ -1127,6 +1350,7 @@ async function runFix() {
       if (b && CARRY.includes(k.id)) return { ...b, summary: b.summary + (b.status === 'ok' || b.status === 'info' ? '' : ' – wynik z oryginału, poprawka automatyczna tego nie usuwa'), wasFixed: false };
       return { ...k, wasFixed: b && (b.status === 'err' || b.status === 'warn') && (k.status === 'ok' || k.status === 'info') };
     });
+    S.fixedChecks.unshift(postflight(S.A, S.fixedA, opts));
     S.approval = null; S.view = 'compare';
     renderReport(); setTabs(); await drawView();
     pushHistory();
@@ -1318,11 +1542,16 @@ $('#fileInput').addEventListener('change', e => { const f = e.target.files[0]; i
 drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f) });
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer?.files[0]; if (f) loadFile(f) });
-async function loadSample() { const b = await makeSample(); await loadFile(new File([b], 'ulotka-wiosna-A5_przyklad.pdf', { type: 'application/pdf' })) }
-$('#btnSample').addEventListener('click', loadSample);
+async function loadSample(key = 'a5') {
+  const sm = SAMPLES[key]; if (!sm) return;
+  if (profiles.some(p => p.id === sm.profile)) { profileId = sm.profile; store.set('profileId', profileId); fillProfileForm() }
+  const b = await makeSample(key);
+  await loadFile(new File([b], sm.file, { type: 'application/pdf' }));
+}
+$('#sampleSel').addEventListener('change', async e => { const k = e.target.value; e.target.value = ''; if (k) await loadSample(k) });
 
 /* ---------- boot ---------- */
 fillProfileForm(); renderHistory(); setTabs();
-loadSample().catch(e => { console.error(e); toast('Nie udało się wczytać przykładu') });
+loadSample('a5').catch(e => { console.error(e); toast('Nie udało się wczytać przykładu') });
 })();
 </script>
